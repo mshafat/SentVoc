@@ -3,20 +3,24 @@ let currentSessionCards = [];
 let currentIndex = 0;
 let isFlipped = false;
 
-// নোট সেভ করা
+function toggleSettings() {
+    const settings = document.getElementById('settings-view');
+    settings.classList.toggle('hidden');
+}
+
 function saveNote() {
     const input = document.getElementById('note-input');
     const text = input.value.trim();
-    if (!text) return alert("কিছু লিখুন!");
+    if (!text) return;
 
     const date = new Date().toLocaleDateString();
     const boldWords = text.match(/\*\*(.*?)\*\*/g);
 
-    if (!boldWords) return alert("**শব্দ** বোল্ড করুন!");
+    if (!boldWords) return alert("দয়া করে শব্দটিকে **বোল্ড** করুন!");
 
     const newEntries = boldWords.map(bw => ({
         word: bw.replace(/\*\*/g, ""),
-        sentence: text.replace(/\*\*/g, ""), // বাক্যে বোল্ড মার্ক সরিয়ে সাধারণ রাখা
+        sentence: text.replace(/\*\*/g, ""),
         date: date
     }));
 
@@ -25,43 +29,31 @@ function saveNote() {
     
     localStorage.setItem('vocab_notes', JSON.stringify(notes));
     input.value = "";
-    alert("সফলভাবে সেভ হয়েছে!");
+    alert("VocabLog-এ সেভ হয়েছে!");
 }
 
-// রিপিট সেশন শুরু
 function startRepeat(range) {
     currentSessionCards = [];
-    const allDates = Object.keys(notes);
-    
-    allDates.forEach(date => {
-        currentSessionCards.push(...notes[date]);
-    });
+    Object.values(notes).forEach(dayCards => currentSessionCards.push(...dayCards));
 
-    if (currentSessionCards.length === 0) return alert("কোনো কার্ড সেভ করা নেই!");
-
-    // র‍্যান্ডম করা
+    if (currentSessionCards.length === 0) return alert("কোনো ডাটা নেই!");
     currentSessionCards.sort(() => Math.random() - 0.5);
     
     currentIndex = 0;
     isFlipped = false;
     showCard();
-    
     document.getElementById('input-view').classList.add('hidden');
     document.getElementById('repeat-view').classList.remove('hidden');
 }
 
-// কার্ড দেখানো
 function showCard() {
     const card = currentSessionCards[currentIndex];
     const content = document.getElementById('card-content');
-    const progress = document.getElementById('card-progress');
-    
-    progress.innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
+    document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
     
     if (isFlipped) {
-        // বাক্যের প্রতিটি শব্দকে ক্লিকেবল করা
         const words = card.sentence.split(" ");
-        content.innerHTML = words.map(w => `<span class="word-btn" onclick="lookup('${w.replace(/[.,]/g, "")}')">${w}</span>`).join(" ");
+        content.innerHTML = words.map(w => `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${w.replace(/[.,]/g, "")}')">${w}</span>`).join(" ");
     } else {
         content.innerText = card.word;
     }
@@ -78,7 +70,7 @@ function nextCard() {
         isFlipped = false;
         showCard();
     } else {
-        alert("আজকের সেশন শেষ!");
+        alert("সেশন শেষ!");
         exitRepeat();
     }
 }
@@ -88,31 +80,33 @@ function exitRepeat() {
     document.getElementById('repeat-view').classList.add('hidden');
 }
 
-// ডিকশনারি লুকআপ
+// বহুমুখী ডিকশনারি এবং ট্রান্সলেশন ফাংশন
 async function lookup(word) {
-    event.stopPropagation(); // কার্ড ফ্লিপ হওয়া বন্ধ করবে
+    event.stopPropagation();
     const modal = document.getElementById('dict-modal');
     const wordEl = document.getElementById('dict-word');
     const meaningEl = document.getElementById('dict-meaning');
+    
+    const sourceLang = document.getElementById('learn-lang').value;
+    const targetLang = document.getElementById('target-lang').value;
 
-    wordEl.innerText = "Loading...";
+    wordEl.innerText = "খুঁজছি...";
     meaningEl.innerText = "";
     modal.classList.replace('hidden', 'flex');
 
     try {
-        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+        // গুগল ট্রান্সলেট ফ্রি API ব্যবহার করে অর্থ বের করা
+        const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURI(word)}`);
         const data = await res.json();
         
-        if (data[0]) {
+        if (data[0] && data[0][0]) {
             wordEl.innerText = word;
-            meaningEl.innerText = data[0].meanings[0].definitions[0].definition;
+            meaningEl.innerText = data[0][0][0]; // এটি অনুবাদিত অর্থ দেখাবে
         } else {
-            wordEl.innerText = "দুঃখিত";
-            meaningEl.innerText = "অর্থ খুঁজে পাওয়া যায়নি।";
+            meaningEl.innerText = "অর্থ পাওয়া যায়নি।";
         }
     } catch (e) {
-        wordEl.innerText = "Error";
-        meaningEl.innerText = "ইন্টারনেট কানেকশন চেক করুন।";
+        meaningEl.innerText = "ইন্টারনেট বা সেটিংস চেক করুন।";
     }
 }
 
