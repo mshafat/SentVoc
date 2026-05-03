@@ -3,17 +3,19 @@ body {
 }
 
 #flashcard {
-    perspective: 1000px;
-    transition: transform 0.3s;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 #flashcard:active {
-    transform: scale(0.98);
+    transform: scale(0.96);
 }
 
-.word-btn {
-    color: #2563eb;
-    text-decoration: underline;
-    cursor: pointer;
-    font-weight: bold;
+/* Animations for view switching */
+#input-view, #repeat-view, #learned-view {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
