@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VocabLog v1.2</title>
+    <title>VocabLog v1.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -11,9 +11,8 @@
 
     <div id="app" class="max-w-md mx-auto p-4 pb-10">
         <header class="flex justify-between items-center py-6">
-            <!-- Logo with Landing Page Link -->
             <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                VocabLog <span class="text-[10px] bg-indigo-100 px-2 py-0.5 rounded ml-1">v1.2</span>
+                VocabLog <span class="text-[10px] bg-indigo-100 px-2 py-0.5 rounded ml-1">v1.3</span>
             </h1>
             <div class="space-x-3">
                 <button onclick="showSection('learned')" class="text-sm font-medium text-slate-500">Learned</button>
@@ -21,41 +20,17 @@
             </div>
         </header>
 
-        <!-- Settings Section -->
-        <div id="settings-view" class="hidden bg-white p-5 rounded-2xl shadow-xl mb-6 border border-slate-200">
-            <h2 class="font-bold text-lg mb-4">Settings & Data</h2>
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase">Learning</label>
-                        <select id="learn-lang" class="w-full p-2 bg-slate-50 rounded-lg text-sm border-none"></select>
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase">Meaning In</label>
-                        <select id="target-lang" class="w-full p-2 bg-slate-50 rounded-lg text-sm border-none"></select>
-                    </div>
-                </div>
-                <hr>
-                <div class="flex flex-col gap-2">
-                    <button onclick="exportData()" class="bg-slate-100 text-slate-700 py-2 rounded-xl text-sm font-bold tracking-tight">📤 Backup Data</button>
-                    <label class="bg-indigo-50 text-indigo-700 py-2 rounded-xl text-sm font-bold text-center cursor-pointer">
-                        📥 Restore Data
-                        <input type="file" id="importFile" class="hidden" onchange="importData(event)">
-                    </label>
-                </div>
-            </div>
-            <button onclick="toggleSettings()" class="mt-4 w-full text-slate-400 text-xs py-2">Close Settings</button>
-        </div>
-
-        <!-- Input View (Landing Page) -->
+        <!-- Input View -->
         <div id="input-view" class="space-y-4">
             <div class="relative">
-                <button id="bold-tool" onclick="makeBold()" class="hidden absolute -top-10 left-0 bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg z-10 font-bold">
-                    Bold Selected
+                <button id="bold-tool" onclick="makeBold()" class="hidden absolute -top-10 left-0 bg-indigo-600 text-white text-xs px-4 py-2 rounded-full shadow-lg z-10 font-bold animate-bounce">
+                    ✨ Highlight Word
                 </button>
-                <textarea id="note-input" onselect="handleSelection()" class="w-full p-5 h-48 bg-white border border-slate-200 rounded-3xl shadow-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all text-lg" placeholder="Paste your text here..."></textarea>
+                <!-- Editable Area to show colors instead of stars -->
+                <div id="note-input" contenteditable="true" oninput="handleInput()" onselect="handleSelection()" onmouseup="handleSelection()" class="w-full p-5 min-h-[200px] bg-white border border-slate-200 rounded-[2rem] shadow-sm outline-none focus:ring-4 focus:ring-indigo-100 transition-all text-xl leading-relaxed overflow-y-auto rtl-auto" placeholder="Paste or type text here..."></div>
             </div>
-            <button onclick="saveNote()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">Add to Log</button>
+            
+            <button onclick="saveNote()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">Save Flashcard</button>
             
             <div class="pt-6 grid grid-cols-3 gap-3">
                 <button onclick="startRepeat('today')" class="bg-white py-4 text-xs rounded-2xl shadow-sm border font-bold hover:border-indigo-200">Today</button>
@@ -64,7 +39,7 @@
             </div>
         </div>
 
-        <!-- Repeat View -->
+        <!-- Repeat/Flashcard View -->
         <div id="repeat-view" class="hidden">
             <div class="flex justify-between items-center mb-6 px-2">
                 <div id="card-progress" class="text-slate-400 font-bold text-xs">0 / 0</div>
@@ -72,11 +47,10 @@
             </div>
 
             <div id="flashcard" onclick="flipCard()" class="h-96 w-full bg-white rounded-[2.5rem] flex flex-col items-center justify-center p-8 cursor-pointer shadow-2xl relative border border-slate-100 overflow-hidden">
-                <div id="card-content" class="text-center leading-snug"></div>
+                <div id="card-content" class="text-center leading-relaxed w-full rtl-auto"></div>
                 <div class="absolute bottom-6 text-slate-300 text-[9px] font-black uppercase tracking-[0.3em]">Tap to flip</div>
             </div>
 
-            <!-- Navigation and Mastered Buttons -->
             <div class="mt-8 space-y-6">
                 <div class="flex justify-between items-center px-2">
                     <button onclick="prevCard()" id="prev-btn" class="text-indigo-600 font-bold text-sm disabled:opacity-30">← Previous</button>
@@ -84,28 +58,40 @@
                 </div>
                 
                 <div class="flex justify-center pt-2">
-                    <button onclick="markAsLearned()" class="text-emerald-500 font-bold text-xs uppercase tracking-widest border-b border-emerald-200 pb-0.5 hover:text-emerald-700 transition">
+                    <button onclick="markAsLearned()" class="text-emerald-500 font-bold text-xs uppercase tracking-widest border-b border-emerald-200 pb-0.5">
                         ✓ Mark as Mastered
                     </button>
-                </div>
-
-                <div class="text-center pt-4">
-                    <button onclick="showSection('input')" class="text-slate-400 font-bold text-xs uppercase tracking-widest">Exit Session</button>
                 </div>
             </div>
         </div>
 
-        <!-- Mastered List View -->
+        <!-- Mastered List & Settings (Reuse from v1.2) -->
         <div id="learned-view" class="hidden">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">Mastered Words</h2>
+                <h2 class="text-xl font-bold">Mastered</h2>
                 <button onclick="showSection('input')" class="text-indigo-600 font-bold text-sm">Home</button>
             </div>
             <div id="learned-list" class="space-y-3"></div>
         </div>
+
+        <div id="settings-view" class="hidden bg-white p-5 rounded-2xl shadow-xl mb-6 border border-slate-200">
+            <h2 class="font-bold text-lg mb-4 text-center">Settings</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="learn-lang" class="p-3 bg-slate-50 rounded-xl text-sm border-none"></select>
+                    <select id="target-lang" class="p-3 bg-slate-50 rounded-xl text-sm border-none"></select>
+                </div>
+                <button onclick="exportData()" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold">📤 Export Backup</button>
+                <label class="w-full bg-indigo-50 text-indigo-700 py-3 rounded-xl text-sm font-bold text-center block cursor-pointer">
+                    📥 Import Backup
+                    <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+                </label>
+            </div>
+            <button onclick="toggleSettings()" class="mt-4 w-full text-slate-400 text-xs">Close</button>
+        </div>
     </div>
 
-    <!-- Dictionary Modal (Same as before) -->
+    <!-- Dictionary Modal -->
     <div id="dict-modal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 backdrop-blur-md z-50">
         <div class="bg-white p-8 rounded-[2rem] w-full max-w-xs shadow-2xl">
             <h3 id="dict-word" class="text-2xl font-black text-indigo-600 mb-2 truncate uppercase"></h3>
