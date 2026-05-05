@@ -24,12 +24,21 @@ function toggleTheme() {
 window.onload = () => {
     applyTheme();
     const lSel = document.getElementById('learn-lang'), tSel = document.getElementById('target-lang');
-    Object.entries(languages).forEach(([c, n]) => { lSel.add(new Option(n, c)); tSel.add(new Option(n, c)); });
+    Object.entries(languages).forEach(([c, n]) => {
+        lSel.add(new Option(n, c));
+        tSel.add(new Option(n, c));
+    });
+
+    // Default or Saved Prefs
     lSel.value = localStorage.getItem('pref_learn') || "ur";
     tSel.value = localStorage.getItem('pref_target') || "bn";
+
+    // Auto-save settings on change
+    lSel.onchange = () => localStorage.setItem('pref_learn', lSel.value);
+    tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
 };
 
-// Selection Logic
+// Selection logic for Highlighting
 function handleSelection() {
     const sel = window.getSelection();
     const btn = document.getElementById('bold-tool');
@@ -54,23 +63,28 @@ function saveNote() {
     tempDiv.innerHTML = input.innerHTML;
     const words = tempDiv.querySelectorAll('.vocab-word');
     if (words.length === 0) return alert("Select a word to highlight first!");
-    
+
     const date = new Date().toLocaleDateString();
     words.forEach(w => {
         const target = w.innerText.trim();
         const sentence = tempDiv.innerText.trim();
         if (!notes[date]) notes[date] = [];
-        notes[date].push({ word: target, sentence, id: Date.now() + Math.random(), timestamp: Date.now() });
+        notes[date].push({
+            word: target,
+            sentence,
+            id: Date.now() + Math.random(),
+                         timestamp: Date.now()
+        });
     });
     localStorage.setItem('vocab_notes', JSON.stringify(notes));
     input.innerHTML = ""; alert("Card saved!");
 }
 
-// Session Flow
+// Session Flow logic
 function startRepeat(mode) {
     currentSessionCards = [];
     isReviewingMastered = (mode === 'mastered');
-    
+
     if (isReviewingMastered) {
         currentSessionCards = [...learnedWords];
     } else {
@@ -97,7 +111,7 @@ function startRepeat(mode) {
     showSection('repeat');
 }
 
-// Rendering Logic (FIX: Highlight word dictionary & flip prevention)
+// Card Display & Dictionary Integration
 function showCard() {
     const card = currentSessionCards[currentIndex];
     const content = document.getElementById('card-content');
@@ -108,21 +122,20 @@ function showCard() {
         const sentence = card.sentence;
         const safeWord = card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(${safeWord})`, 'gi');
-        
+
         const masked = sentence.replace(regex, "___MARK___$1___END___");
         const parts = masked.split(/\s+/);
-        
+
         content.innerHTML = parts.map(p => {
             const cleanText = p.replace("___MARK___", "").replace("___END___", "");
             const dictionaryWord = cleanText.replace(/[.,!?।]/g, "");
-            
+
             if (p.includes("___MARK___")) {
-                // ADDED: onclick for Highlighted word to lookup without flipping
                 return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 dark:text-white px-1 rounded font-bold italic cursor-pointer" onclick="lookup('${dictionaryWord}')">${cleanText}</mark>`;
             }
             return `<span class="cursor-pointer text-indigo-500 dark:text-indigo-400 hover:underline" onclick="lookup('${dictionaryWord}')">${p}</span>`;
         }).join(" ");
-        
+
         content.className = "text-2xl font-semibold text-slate-700 dark:text-slate-300 leading-snug";
     } else {
         content.innerText = card.word;
@@ -135,7 +148,7 @@ function nextCard() { if (currentIndex < currentSessionCards.length - 1) { curre
 function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function markAsLearned() {
-    if(!confirm("Mastered?")) return;
+    if(!confirm("Move to Learned list?")) return;
     learnedWords.push(currentSessionCards[currentIndex]);
     localStorage.setItem('learned_words', JSON.stringify(learnedWords));
     currentSessionCards.splice(currentIndex, 1);
@@ -155,9 +168,9 @@ function deleteCurrentCard() {
     else { if(currentIndex >= currentSessionCards.length) currentIndex = 0; isFlipped = false; showCard(); }
 }
 
-// UI Controls
+// Global UI Section Control
 function showSection(s) {
-    document.querySelectorAll('#input-view, #repeat-view, #learned-view, #settings-view').forEach(e => e.classList.add('hidden'));
+    document.querySelectorAll('#input-view, #repeat-view, #learned-view').forEach(e => e.classList.add('hidden'));
     if(s==='learned') renderLearnedList();
     document.getElementById(s+'-view').classList.remove('hidden');
 }
@@ -173,10 +186,9 @@ function renderLearnedList() {
     });
 }
 
+// API Dictionary Lookup
 async function lookup(word) {
-    // CRITICAL: Stop propagation so flipCard() isn't triggered
     if (window.event) window.event.stopPropagation();
-    
     const modal = document.getElementById('dict-modal');
     document.getElementById('dict-word').innerText = "Searching...";
     modal.classList.replace('hidden', 'flex');
@@ -185,10 +197,30 @@ async function lookup(word) {
         const data = await res.json();
         document.getElementById('dict-word').innerText = word;
         document.getElementById('dict-meaning').innerText = data[0][0][0];
-    } catch (e) { document.getElementById('dict-meaning').innerText = "Not found."; }
+    } catch (e) { document.getElementById('dict-meaning').innerText = "Translation unavailable."; }
 }
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
-function toggleSettings() { document.getElementById('settings-view').classList.toggle('hidden'); }
-function exportData() { const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `VocabLog_Backup.json`; a.click(); }
-function importData(e) { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = (ev) => { const d = JSON.parse(ev.target.result); localStorage.setItem('vocab_notes', JSON.stringify(d.notes)); localStorage.setItem('learned_words', JSON.stringify(d.learnedWords || [])); location.reload(); }; r.readAsText(f); }
+
+// Settings Modal Toggle (v2.0 Update)
+function toggleSettings() {
+    const modal = document.getElementById('settings-modal');
+    if(modal.classList.contains('hidden')) modal.classList.replace('hidden', 'flex');
+    else modal.classList.replace('flex', 'hidden');
+}
+
+function exportData() {
+    const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `VocabLog_Backup.json`; a.click();
+}
+
+function importData(e) {
+    const f = e.target.files[0]; if(!f)return;
+    const r = new FileReader(); r.onload = (ev) => {
+        const d = JSON.parse(ev.target.result);
+        localStorage.setItem('vocab_notes', JSON.stringify(d.notes));
+        localStorage.setItem('learned_words', JSON.stringify(d.learnedWords || []));
+        location.reload();
+    }; r.readAsText(f);
+}
