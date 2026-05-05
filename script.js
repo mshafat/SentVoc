@@ -7,7 +7,7 @@ let currentIndex = 0;
 let isFlipped = false;
 let isReviewingMastered = false;
 
-// Theme Initialization & Logic
+// Theme Logic
 function applyTheme() {
     const saved = localStorage.getItem('theme');
     const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -29,7 +29,7 @@ window.onload = () => {
     tSel.value = localStorage.getItem('pref_target') || "bn";
 };
 
-// Highlighting Logic
+// Selection and Tool
 function handleSelection() {
     const sel = window.getSelection();
     const btn = document.getElementById('bold-tool');
@@ -53,20 +53,20 @@ function saveNote() {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = input.innerHTML;
     const words = tempDiv.querySelectorAll('.vocab-word');
-    if (words.length === 0) return alert("Select a word to highlight!");
+    if (words.length === 0) return alert("Select a word to highlight first!");
     
     const date = new Date().toLocaleDateString();
     words.forEach(w => {
         const target = w.innerText.trim();
         const sentence = tempDiv.innerText.trim();
         if (!notes[date]) notes[date] = [];
-        notes[date].push({ word: target, sentence, id: Date.now() + Math.random() });
+        notes[date].push({ word: target, sentence, id: Date.now() + Math.random(), timestamp: Date.now() });
     });
     localStorage.setItem('vocab_notes', JSON.stringify(notes));
-    input.innerHTML = ""; alert("Saved!");
+    input.innerHTML = ""; alert("Card saved!");
 }
 
-// Session Management
+// FIX: Improved Session Logic for Buttons
 function startRepeat(mode) {
     currentSessionCards = [];
     isReviewingMastered = (mode === 'mastered');
@@ -74,18 +74,29 @@ function startRepeat(mode) {
     if (isReviewingMastered) {
         currentSessionCards = [...learnedWords];
     } else {
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+        const oneWeek = 7 * oneDay;
+
         Object.values(notes).forEach(dayCards => {
             dayCards.forEach(card => {
-                if(!learnedWords.some(lw => lw.id === card.id)) currentSessionCards.push(card);
+                // Skip if already learned
+                if(learnedWords.some(lw => lw.id === card.id)) return;
+
+                const age = now - (card.timestamp || 0);
+                if (mode === 'today' && age <= oneDay) currentSessionCards.push(card);
+                else if (mode === 'week' && age <= oneWeek) currentSessionCards.push(card);
+                else if (mode === 'all') currentSessionCards.push(card);
             });
         });
     }
 
-    if (currentSessionCards.length === 0) return alert("No cards found!");
+    if (currentSessionCards.length === 0) {
+        return alert("No cards found for this selection!");
+    }
+
     currentSessionCards.sort(() => Math.random() - 0.5);
     currentIndex = 0; isFlipped = false;
-    
-    // Hide 'Mastered' button if we are already reviewing mastered cards
     document.getElementById('mastered-btn').style.display = isReviewingMastered ? 'none' : 'block';
     
     showCard();
@@ -104,13 +115,13 @@ function showCard() {
         const safeWord = card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(${safeWord})`, 'gi');
         
-        // Use unique markers to prevent HTML injection during split
-        const maskedText = sentence.replace(regex, "___MARKER___$1___ENDMARKER___");
-        const parts = maskedText.split(/\s+/);
+        // Marker based safe replacement
+        const masked = sentence.replace(regex, "___MARK___$1___END___");
+        const parts = masked.split(/\s+/);
         
         content.innerHTML = parts.map(p => {
-            if (p.includes("___MARKER___")) {
-                const wordOnly = p.replace("___MARKER___", "").replace("___ENDMARKER___", "");
+            if (p.includes("___MARK___")) {
+                const wordOnly = p.replace("___MARK___", "").replace("___END___", "");
                 return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 dark:text-white px-1 rounded font-bold italic">${wordOnly}</mark>`;
             }
             const clean = p.replace(/[.,!?।]/g, "");
@@ -125,11 +136,11 @@ function showCard() {
 }
 
 function flipCard() { isFlipped = !isFlipped; showCard(); }
-function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Session complete!"); showSection('input'); } }
+function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("End of session!"); showSection('input'); } }
 function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function markAsLearned() {
-    if(!confirm("Mark as mastered?")) return;
+    if(!confirm("Mastered?")) return;
     learnedWords.push(currentSessionCards[currentIndex]);
     localStorage.setItem('learned_words', JSON.stringify(learnedWords));
     currentSessionCards.splice(currentIndex, 1);
@@ -138,7 +149,7 @@ function markAsLearned() {
 }
 
 function deleteCurrentCard() {
-    if (!confirm("Delete this card permanently?")) return;
+    if (!confirm("Delete permanently?")) return;
     const cardId = currentSessionCards[currentIndex].id;
     for (let d in notes) notes[d] = notes[d].filter(c => c.id !== cardId);
     if (isReviewingMastered) learnedWords = learnedWords.filter(c => c.id !== cardId);
@@ -151,7 +162,6 @@ function deleteCurrentCard() {
     else { if(currentIndex >= currentSessionCards.length) currentIndex = 0; isFlipped = false; showCard(); }
 }
 
-// Section Control
 function showSection(s) {
     document.querySelectorAll('#input-view, #repeat-view, #learned-view, #settings-view').forEach(e => e.classList.add('hidden'));
     if(s==='learned') renderLearnedList();
@@ -169,7 +179,6 @@ function renderLearnedList() {
     });
 }
 
-// API & Dictionary
 async function lookup(word) {
     event.stopPropagation();
     const modal = document.getElementById('dict-modal');
