@@ -34,20 +34,37 @@ window.onload = () => {
     tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
 };
 
-// Google Online TTS
+// --- অডিও ফাংশন (আপনার বন্ধুর দেওয়া প্রো-কোড) ---
 function speakText(event) {
     if (event) event.stopPropagation(); 
+    
     const card = currentSessionCards[currentIndex];
     const textToSpeak = isFlipped ? card.sentence : card.word;
     const langCode = document.getElementById('learn-lang').value;
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&client=tw-ob`;
-    const audio = new Audio(url);
-    audio.play().catch(() => {
-        const ut = new SpeechSynthesisUtterance(textToSpeak);
-        ut.lang = langCode;
-        window.speechSynthesis.speak(ut);
-    });
+
+    window.speechSynthesis.cancel();
+    const voices = window.speechSynthesis.getVoices();
+    const voiceFound = voices.some(v => v.lang.startsWith(langCode));
+
+    if (voiceFound && window.speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = langCode;
+        utterance.rate = 0.9; 
+        window.speechSynthesis.speak(utterance);
+    } 
+    else {
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&client=tw-ob`;
+        const audio = new Audio(url);
+        
+        audio.play().catch(err => {
+            console.error("Audio playback failed:", err);
+            const fallbackUtterance = new SpeechSynthesisUtterance(textToSpeak);
+            fallbackUtterance.lang = langCode;
+            window.speechSynthesis.speak(fallbackUtterance);
+        });
+    }
 }
+// ----------------------------------------------
 
 function handleSelection() {
     const sel = window.getSelection();
@@ -203,4 +220,9 @@ function importData(e) {
         localStorage.setItem('sentvoc_learned', JSON.stringify(d.learnedWords || [])); 
         location.reload(); 
     }; r.readAsText(f); 
+}
+
+// Chrome ও Linux-এ ভয়েস লোডিং নিশ্চিত করার জন্য নিচের অংশটুকু জরুরি
+if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }
