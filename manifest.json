@@ -1,6 +1,6 @@
 {
-  "name": "VocabLog - Smart Learning",
-  "short_name": "VocabLog",
+  "name": "SentVoc - Smart Learning",
+  "short_name": "SentVoc",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#4f46e5",
