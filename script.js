@@ -34,7 +34,7 @@ window.onload = () => {
     tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
 };
 
-// --- অডিও ইঞ্জিন (উর্দু এবং লিনাক্স ফিক্স সহ) ---
+// --- উন্নত অডিও লজিক (লিনাক্স ও উর্দু সমস্যার স্থায়ী সমাধান) ---
 function speakText(event) {
     if (event) event.stopPropagation(); 
     
@@ -42,34 +42,32 @@ function speakText(event) {
     const textToSpeak = isFlipped ? card.sentence : card.word;
     const langCode = document.getElementById('learn-lang').value;
 
-    // ১. সিস্টেমের ডিফল্ট ভয়েস ইঞ্জিন বন্ধ করা (লিনাক্স এরর এড়াতে)
-    window.speechSynthesis.cancel();
+    // ১. সিস্টেমের স্পিচ ইঞ্জিনকে পুরোপুরি এড়িয়ে চলা (লিনাক্স এরর ফিক্স)
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
 
-    // ২. গুগল টিটিএস ইউআরএল (উর্দু ও লিনাক্সের জন্য অপ্টিমাইজড)
+    // ২. গুগল টিটিএস এর সরাসরি অডিও ফাইল সোর্স
+    // লিনাক্সে উর্দু এবং ফারসি ভাষার জন্য এই client=tw-ob প্যারামিটারটি অত্যন্ত জরুরি
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&total=1&idx=0&textlen=${textToSpeak.length}&client=tw-ob`;
     
     const audio = new Audio();
     audio.src = url;
     audio.crossOrigin = "anonymous"; 
 
-    // ৩. প্লেব্যাক লজিক
-    const playPromise = audio.play();
-
-    if (playPromise !== undefined) {
-        playPromise.then(() => {
-            console.log("Audio playing via Google TTS");
-        }).catch(err => {
-            console.warn("Autoplay/Google blocked. Trying System Fallback...");
-            // ৪. গুগল ফেইল করলে সিস্টেমের যা আছে তাই দিয়ে চেষ্টা করা
-            const ut = new SpeechSynthesisUtterance(textToSpeak);
-            ut.lang = langCode;
-            ut.rate = 0.9;
-            window.speechSynthesis.speak(ut);
-        });
-    }
+    // ৩. অডিও প্লে করার কমান্ড
+    audio.play().then(() => {
+        console.log("Success: Audio playing via Google Cloud TTS");
+    }).catch(err => {
+        console.error("Audio Playback Error:", err);
+        // যদি গুগল কোনো কারণে ব্লক করে (যেমন নেটওয়ার্ক সমস্যা), তবেই কেবল সিস্টেম ট্রাই করবে
+        const ut = new SpeechSynthesisUtterance(textToSpeak);
+        ut.lang = langCode;
+        window.speechSynthesis.speak(ut);
+    });
 }
 
-// --- কার্ড ও সেকশন ম্যানেজমেন্ট ---
+// --- কার্ড ম্যানেজমেন্ট ফাংশনসমূহ ---
 function handleSelection() {
     const sel = window.getSelection();
     const btn = document.getElementById('bold-tool');
@@ -100,7 +98,7 @@ function saveNote() {
         notes[date].push({ word: w.innerText.trim(), sentence: temp.innerText.trim(), id: Date.now() + Math.random(), timestamp: Date.now() });
     });
     localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-    input.innerHTML = ""; alert("Saved!");
+    input.innerHTML = ""; alert("Saved Successfully!");
 }
 
 function startRepeat(mode) {
@@ -120,7 +118,7 @@ function startRepeat(mode) {
             });
         });
     }
-    if (currentSessionCards.length === 0) return alert("No cards!");
+    if (currentSessionCards.length === 0) return alert("No cards to review!");
     currentSessionCards.sort(() => Math.random() - 0.5);
     currentIndex = 0; isFlipped = false;
     document.getElementById('mastered-btn').style.display = isReviewingMastered ? 'none' : 'block';
@@ -147,11 +145,11 @@ function showCard() {
 }
 
 function flipCard() { isFlipped = !isFlipped; showCard(); }
-function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Done!"); showSection('input'); } }
+function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("End of Session!"); showSection('input'); } }
 function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function markAsLearned() {
-    if(!confirm("Mastered?")) return;
+    if(!confirm("Move to Learned?")) return;
     learnedWords.push(currentSessionCards[currentIndex]);
     localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
     currentSessionCards.splice(currentIndex, 1);
@@ -159,7 +157,7 @@ function markAsLearned() {
 }
 
 function deleteCurrentCard() {
-    if (!confirm("Delete?")) return;
+    if (!confirm("Delete permanently?")) return;
     const id = currentSessionCards[currentIndex].id;
     for (let d in notes) notes[d] = notes[d].filter(c => c.id !== id);
     learnedWords = learnedWords.filter(c => c.id !== id);
@@ -177,7 +175,7 @@ function showSection(s) {
 
 function renderLearnedList() {
     const list = document.getElementById('learned-list');
-    list.innerHTML = learnedWords.length === 0 ? '<p class="text-center py-10 text-slate-400">Empty.</p>' : '';
+    list.innerHTML = learnedWords.length === 0 ? '<p class="text-center py-10 text-slate-400">No mastered words yet.</p>' : '';
     [...learnedWords].reverse().forEach(lw => {
         const div = document.createElement('div');
         div.className = "bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 shadow-sm mb-3";
@@ -189,7 +187,7 @@ function renderLearnedList() {
 async function lookup(word) {
     if (window.event) window.event.stopPropagation();
     const modal = document.getElementById('dict-modal');
-    document.getElementById('dict-word').innerText = "Translating...";
+    document.getElementById('dict-word').innerText = "Searching...";
     modal.classList.replace('hidden', 'flex');
     const sl = document.getElementById('learn-lang').value;
     const tl = document.getElementById('target-lang').value;
@@ -201,7 +199,7 @@ async function lookup(word) {
         document.getElementById('dict-word').innerText = word;
         document.getElementById('dict-meaning').innerText = wData[0][0][0];
         document.getElementById('sentence-meaning').innerText = sData[0][0][0];
-    } catch (e) { document.getElementById('dict-meaning').innerText = "Error"; }
+    } catch (e) { document.getElementById('dict-meaning').innerText = "Translation Error"; }
 }
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
