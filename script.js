@@ -34,7 +34,7 @@ window.onload = () => {
     tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
 };
 
-// --- অডিও ফাংশন (আপনার বন্ধুর দেওয়া প্রো-কোড) ---
+// --- উন্নত অডিও ফাংশন (Linux ও iOS ফিক্স সহ) ---
 function speakText(event) {
     if (event) event.stopPropagation(); 
     
@@ -42,30 +42,37 @@ function speakText(event) {
     const textToSpeak = isFlipped ? card.sentence : card.word;
     const langCode = document.getElementById('learn-lang').value;
 
+    // ১. ব্রাউজারের নিজস্ব স্পিচ ইঞ্জিন চেক করা
     window.speechSynthesis.cancel();
     const voices = window.speechSynthesis.getVoices();
-    const voiceFound = voices.some(v => v.lang.startsWith(langCode));
+    const voiceFound = voices.length > 0 && voices.some(v => v.lang.startsWith(langCode));
 
-    if (voiceFound && window.speechSynthesis) {
+    // যদি লোকাল ভয়েস থাকে (যেমন আইফোন বা উইন্ডোজ)
+    if (voiceFound) {
         const utterance = new SpeechSynthesisUtterance(textToSpeak);
         utterance.lang = langCode;
-        utterance.rate = 0.9; 
+        utterance.rate = 0.9;
         window.speechSynthesis.speak(utterance);
     } 
+    // ২. লোকাল ভয়েস না থাকলে গুগল টিটিএস ব্যবহার করা (লিনাক্সের জন্য জরুরি)
     else {
         const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&client=tw-ob`;
-        const audio = new Audio(url);
-        
+        const audio = new Audio();
+        audio.src = url;
+        audio.crossOrigin = "anonymous"; // লিনাক্স/ব্রেভ সিকিউরিটি ফিক্স
+
         audio.play().catch(err => {
-            console.error("Audio playback failed:", err);
-            const fallbackUtterance = new SpeechSynthesisUtterance(textToSpeak);
-            fallbackUtterance.lang = langCode;
-            window.speechSynthesis.speak(fallbackUtterance);
+            console.warn("External Audio blocked, trying one last fallback...");
+            // ৩. সব ফেইল করলে সিস্টেমের যা আছে তাই দিয়ে চেষ্টা করা
+            const lastChance = new SpeechSynthesisUtterance(textToSpeak);
+            lastChance.lang = langCode;
+            window.speechSynthesis.speak(lastChance);
         });
     }
 }
-// ----------------------------------------------
 
+// ----------------------------------------------
+// বাকি সব ফাংশন আগের মতই থাকবে...
 function handleSelection() {
     const sel = window.getSelection();
     const btn = document.getElementById('bold-tool');
@@ -222,7 +229,6 @@ function importData(e) {
     }; r.readAsText(f); 
 }
 
-// Chrome ও Linux-এ ভয়েস লোডিং নিশ্চিত করার জন্য নিচের অংশটুকু জরুরি
 if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }
