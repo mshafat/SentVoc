@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v2.6 - Double Tap Highlighting
+// ভার্সন কোড নেম: SentVoc v2.7 - Large Font Restore & Smart Highlight
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -32,12 +32,12 @@ window.onload = () => {
     lSel.value = localStorage.getItem('pref_learn') || "ur";
     tSel.value = localStorage.getItem('pref_target') || "bn";
     
-    // ডাবল ট্যাপ লিসেনার যোগ করা (ইনপুট ফিল্ডের জন্য)
+    // ডাবল ট্যাপ লিসেনার (ইনপুট ফিল্ডের জন্য)
     const inputArea = document.getElementById('note-input');
     inputArea.addEventListener('dblclick', handleSmartHighlight);
 };
 
-// --- নতুন স্মার্ট হাইলাইট ফিচার (v2.6) ---
+// --- স্মার্ট হাইলাইট ফিচার ---
 function handleSmartHighlight(e) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.toString().trim() === "") return;
@@ -45,31 +45,25 @@ function handleSmartHighlight(e) {
     const range = selection.getRangeAt(0);
     const selectedText = selection.toString().trim();
 
-    // চেক করা হচ্ছে সিলেকশনটি কি অলরেডি হাইলাইটেড কি না
     let parent = range.commonAncestorContainer;
     if (parent.nodeType === 3) parent = parent.parentNode;
 
     if (parent.classList.contains('vocab-word')) {
-        // যদি অলরেডি হাইলাইট থাকে, তবে হাইলাইট তুলে দাও
         const textNode = document.createTextNode(parent.innerText);
         parent.parentNode.replaceChild(textNode, parent);
     } else {
-        // যদি হাইলাইট না থাকে, তবে নতুন হাইলাইট করো
         const span = document.createElement('span');
         span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline underline-offset-4";
         span.innerText = selectedText;
-        
         range.deleteContents();
         range.insertNode(span);
     }
-    
     window.getSelection().removeAllRanges();
 }
 
-// --- অডিও ইঞ্জিন (v2.5 এর আইফোন ফিক্সসহ) ---
+// --- অডিও ইঞ্জিন (iPhone Native Fix) ---
 function speakText(event) {
     if (event) event.stopPropagation();
-    
     const card = currentSessionCards[currentIndex];
     const textToSpeak = isFlipped ? card.sentence : card.word;
     const langCode = document.getElementById('learn-lang').value;
@@ -82,34 +76,46 @@ function speakText(event) {
     setTimeout(() => {
         window.speechSynthesis.speak(utterance);
     }, 50);
-
-    utterance.onerror = () => {
-        const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&client=tw-ob`);
-        audio.play().catch(e => console.log("Audio Error"));
-    };
 }
 
-// --- বাকি সব ফাংশন ---
+// --- কার্ড ডিসপ্লে (v2.5 এর বড় ফন্ট ফিরিয়ে আনা হয়েছে) ---
+function showCard() {
+    const card = currentSessionCards[currentIndex];
+    const content = document.getElementById('card-content');
+    document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
+    document.getElementById('prev-btn').disabled = currentIndex === 0;
+    
+    if (isFlipped) {
+        // বাক্য দেখার সময় বড় এবং স্পষ্ট ফন্ট (v2.5 Style)
+        const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
+            const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
+            if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-bold italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
+            return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
+        }).join(" ");
+        content.className = "text-2xl font-semibold text-slate-700 dark:text-slate-300 leading-snug text-center px-4";
+    } else {
+        // শুধু শব্দ দেখার সময় অনেক বড় এবং বোল্ড ফন্ট (v2.5 Style)
+        content.innerText = card.word;
+        content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase text-center tracking-wide";
+    }
+}
+
+// --- অন্যান্য কোর ফাংশন ---
 function saveNote() {
     const input = document.getElementById('note-input');
     const temp = document.createElement('div');
     temp.innerHTML = input.innerHTML;
     const words = temp.querySelectorAll('.vocab-word');
-    if (words.length === 0) return alert("Double tap to highlight a word first!");
+    if (words.length === 0) return alert("Double tap a word to highlight it!");
     
     const date = new Date().toLocaleDateString();
     words.forEach(w => {
         if (!notes[date]) notes[date] = [];
-        notes[date].push({ 
-            word: w.innerText.trim(), 
-            sentence: temp.innerText.trim(), 
-            id: Date.now() + Math.random(), 
-            timestamp: Date.now() 
-        });
+        notes[date].push({ word: w.innerText.trim(), sentence: temp.innerText.trim(), id: Date.now() + Math.random(), timestamp: Date.now() });
     });
     localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-    input.innerHTML = ""; 
-    alert("Saved Successfully!");
+    input.innerHTML = ""; alert("Saved!");
 }
 
 function startRepeat(mode) {
@@ -129,32 +135,15 @@ function startRepeat(mode) {
             });
         });
     }
-    if (currentSessionCards.length === 0) return alert("No cards found!");
+    if (currentSessionCards.length === 0) return alert("No cards!");
     currentSessionCards.sort(() => Math.random() - 0.5);
     currentIndex = 0; isFlipped = false;
     document.getElementById('mastered-btn').style.display = isReviewingMastered ? 'none' : 'block';
     showCard(); showSection('repeat');
 }
 
-function showCard() {
-    const card = currentSessionCards[currentIndex];
-    const content = document.getElementById('card-content');
-    document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
-    document.getElementById('prev-btn').disabled = currentIndex === 0;
-    if (isFlipped) {
-        const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
-            const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
-            if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-bold italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
-            return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
-        }).join(" ");
-    } else {
-        content.innerText = card.word;
-    }
-}
-
 function flipCard() { isFlipped = !isFlipped; showCard(); }
-function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Session complete!"); showSection('input'); } }
+function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Session ended!"); showSection('input'); } }
 function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function markAsLearned() {
@@ -196,7 +185,7 @@ function renderLearnedList() {
 async function lookup(word) {
     if (window.event) window.event.stopPropagation();
     const modal = document.getElementById('dict-modal');
-    document.getElementById('dict-word').innerText = "Searching...";
+    document.getElementById('dict-word').innerText = "Translating...";
     modal.classList.replace('hidden', 'flex');
     const sl = document.getElementById('learn-lang').value, tl = document.getElementById('target-lang').value;
     try {
@@ -207,7 +196,7 @@ async function lookup(word) {
         document.getElementById('dict-word').innerText = word;
         document.getElementById('dict-meaning').innerText = wData[0][0][0];
         document.getElementById('sentence-meaning').innerText = sData[0][0][0];
-    } catch (e) { document.getElementById('dict-meaning').innerText = "Translation error"; }
+    } catch (e) { document.getElementById('dict-meaning').innerText = "Error"; }
 }
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
@@ -219,7 +208,7 @@ function toggleSettings() {
 function exportData() { 
     const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"}); 
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); 
-    a.download = `SentVoc_v2.6_Backup.json`; a.click(); 
+    a.download = `SentVoc_v2.7_Backup.json`; a.click(); 
 }
 
 function importData(e) { 
