@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v4.2 - Original Bold Look & v2.4 Mastered Logic
+// ভার্সন কোড নেম: SentVoc v4.2 - The Perfect Hybrid (Final)
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -19,7 +19,7 @@ window.onload = () => {
     }
 };
 
-// --- শেয়ার লজিক (v4.1 থেকে উন্নত করা - ডাবল টেক্সট ও কোটেশন ফিক্স) ---
+// --- শেয়ার টেক্সট ক্লিনার (v4.0 logic) ---
 function handleIncomingShare() {
     const urlParams = new URLSearchParams(window.location.search);
     const sharedText = urlParams.get('text');
@@ -34,11 +34,17 @@ function handleIncomingShare() {
             .replace(/\+/g, ' ')
             .trim();
 
-        // ডুপ্লিকেট টেক্সট রিমুভার
-        const half = Math.floor(cleanText.length / 2);
-        const part1 = cleanText.substring(0, half).trim();
-        const part2 = cleanText.substring(half).trim();
-        if(part1 === part2) cleanText = part1;
+        // ডুপ্লিকেট টেক্সট ফিক্স (আপনার ব্রাউজার উদাহরণের জন্য)
+        const sentences = cleanText.split(". ");
+        if(sentences.length > 1 && sentences[0].includes(sentences[1])) {
+            cleanText = sentences[0];
+        } else {
+            const words = cleanText.split(/\s+/);
+            const mid = Math.floor(words.length / 2);
+            const firstHalf = words.slice(0, mid).join(" ");
+            const secondHalf = words.slice(mid).join(" ");
+            if (firstHalf === secondHalf) cleanText = firstHalf;
+        }
 
         setTimeout(() => {
             const inputArea = document.getElementById('note-input');
@@ -50,7 +56,18 @@ function handleIncomingShare() {
     }
 }
 
-// --- কার্ড ডিসপ্লে (v4.0 এর বোল্ড লুক ফিরিয়ে আনা হয়েছে) ---
+// --- সেটিংস বাটন ফিক্স ---
+function toggleSettings() {
+    const m = document.getElementById('settings-modal');
+    if (!m) return;
+    if (m.classList.contains('hidden')) {
+        m.classList.replace('hidden', 'flex');
+    } else {
+        m.classList.replace('flex', 'hidden');
+    }
+}
+
+// --- কার্ড ডিসপ্লে (v4.0 Bold Look) ---
 function showCard() {
     const card = currentSessionCards[currentIndex];
     const content = document.getElementById('card-content');
@@ -60,8 +77,8 @@ function showCard() {
     document.getElementById('prev-btn').disabled = currentIndex === 0;
     
     if (isFlipped) {
-        // v4.0 স্টাইল বোল্ড সেন্টেন্স
-        content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center";
+        // v4.0 Bold Sentence Style
+        content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2";
         const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
         content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
             const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
@@ -69,13 +86,13 @@ function showCard() {
             return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
         }).join(" ");
     } else {
-        // v4.0 স্টাইল বিগ বোল্ড ওয়ার্ড
+        // v4.0 Big Bold Word Style
         content.innerText = card.word;
         content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center";
     }
 }
 
-// --- মাস্টারড বাটন ও লার্নড লিস্ট (v2.4 এর লজিক) ---
+// --- মাস্টারড ও লার্নড লিস্ট (v2.4 Logic) ---
 function markAsLearned() {
     if(!confirm("আয়ত্ত করেছেন? এটি লার্নড লিস্টে চলে যাবে।")) return;
     
@@ -83,11 +100,10 @@ function markAsLearned() {
     learnedWords.push(card);
     localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
     
-    // বর্তমান সেশন থেকে রিমুভ করা
     currentSessionCards.splice(currentIndex, 1);
     
     if (currentSessionCards.length === 0) {
-        alert("সব কার্ড শেষ!");
+        alert("সেশন শেষ!");
         showSection('input');
     } else {
         if(currentIndex >= currentSessionCards.length) currentIndex--;
@@ -98,25 +114,22 @@ function markAsLearned() {
 
 function renderLearnedList() {
     const list = document.getElementById('learned-list');
+    if(!list) return;
     list.innerHTML = learnedWords.length === 0 ? '<p class="text-center py-10 text-slate-400 opacity-50">Mastered list is empty.</p>' : '';
     
-    // v2.4 স্টাইল রিভার্স লিস্ট (নতুনগুলো আগে)
-    [...learnedWords].reverse().forEach((lw, idx) => {
+    [...learnedWords].reverse().forEach((lw) => {
         const div = document.createElement('div');
         div.className = "bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm mb-3 border-l-4 border-green-500";
         div.innerHTML = `
-            <div class="flex justify-between">
-                <div>
-                    <p class="font-black text-indigo-600 dark:text-indigo-400 uppercase text-lg">${lw.word}</p>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${lw.sentence}</p>
-                </div>
+            <div>
+                <p class="font-black text-indigo-600 dark:text-indigo-400 uppercase text-lg">${lw.word}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${lw.sentence}</p>
             </div>
         `;
         list.appendChild(div);
     });
 }
 
-// --- সেশন শুরু (v2.4 লজিক) ---
 function startRepeat(mode) {
     currentSessionCards = [];
     isReviewingMastered = (mode === 'mastered');
@@ -127,7 +140,6 @@ function startRepeat(mode) {
         const now = Date.now();
         Object.values(notes).forEach(day => {
             day.forEach(c => {
-                // লার্নড লিস্টে থাকলে রিপিটে আসবে না
                 if(learnedWords.some(l => l.id === c.id)) return;
                 const age = now - (c.timestamp || 0);
                 if (mode === 'today' && age <= 86400000) currentSessionCards.push(c);
@@ -142,47 +154,11 @@ function startRepeat(mode) {
     currentSessionCards.sort(() => Math.random() - 0.5);
     currentIndex = 0; isFlipped = false;
     
-    // রিভিউ মোডে মাস্টারড বাটন হাইড করা
     const mBtn = document.getElementById('mastered-btn');
     if(mBtn) mBtn.style.display = isReviewingMastered ? 'none' : 'block';
     
     showCard(); 
     showSection('repeat');
-}
-
-// --- এক্সপোর্ট (শেয়ার অপশন সহ) ---
-async function exportData() {
-    const data = JSON.stringify({notes, learnedWords}, null, 2);
-    const fileName = `SentVoc_Backup.json`;
-    try {
-        const blob = new Blob([data], { type: 'application/json' });
-        const file = new File([blob], fileName, { type: 'application/json' });
-        if (navigator.share) {
-            await navigator.share({ files: [file], title: 'SentVoc Backup' });
-        } else {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = fileName;
-            a.click();
-        }
-    } catch (err) { alert("Export failed"); }
-}
-
-// --- ইমপোর্ট (v2.4 ফিক্সড) ---
-function importData(e) { 
-    const file = e.target.files[0]; 
-    if(!file) return; 
-    const reader = new FileReader(); 
-    reader.onload = (event) => { 
-        try {
-            const d = JSON.parse(event.target.result); 
-            localStorage.setItem('sentvoc_notes', JSON.stringify(d.notes || {}));
-            localStorage.setItem('sentvoc_learned', JSON.stringify(d.learnedWords || []));
-            alert("Data Imported!"); 
-            location.reload(); 
-        } catch (err) { alert("Invalid File"); }
-    }; 
-    reader.readAsText(file); 
 }
 
 // --- ইউটিলিটি ফাংশনস ---
@@ -199,7 +175,7 @@ function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false;
 function saveNote() {
     const input = document.getElementById('note-input');
     const words = input.querySelectorAll('.vocab-word');
-    if (words.length === 0) return alert("শব্দটি হাইলাইট করুন!");
+    if (words.length === 0) return alert("প্রথমে শব্দটি হাইলাইট করুন!");
     const date = new Date().toLocaleDateString();
     words.forEach(w => {
         if (!notes[date]) notes[date] = [];
@@ -207,22 +183,6 @@ function saveNote() {
     });
     localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
     input.innerHTML = ""; alert("সেভ সফল হয়েছে!");
-}
-
-function setupLanguages() {
-    const lSel = document.getElementById('learn-lang'), tSel = document.getElementById('target-lang');
-    Object.entries(languages).forEach(([c, n]) => { 
-        lSel.add(new Option(n, c)); 
-        tSel.add(new Option(n, c)); 
-    });
-    lSel.value = localStorage.getItem('pref_learn') || "ur";
-    tSel.value = localStorage.getItem('pref_target') || "bn";
-}
-
-function applyTheme() {
-    const saved = localStorage.getItem('theme');
-    const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', isDark);
 }
 
 function handleSmartHighlight() {
@@ -251,3 +211,38 @@ async function lookup(word) {
 }
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
+
+function setupLanguages() {
+    const lSel = document.getElementById('learn-lang'), tSel = document.getElementById('target-lang');
+    if(!lSel) return;
+    Object.entries(languages).forEach(([c, n]) => { 
+        lSel.add(new Option(n, c)); 
+        tSel.add(new Option(n, c)); 
+    });
+    lSel.value = localStorage.getItem('pref_learn') || "ur";
+    tSel.value = localStorage.getItem('pref_target') || "bn";
+}
+
+function applyTheme() {
+    const saved = localStorage.getItem('theme');
+    const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark);
+}
+
+function exportData() { 
+    const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"}); 
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); 
+    a.download = `SentVoc_v4.2_Backup.json`; a.click(); 
+}
+
+function importData(e) { 
+    const f = e.target.files[0]; if(!f)return; 
+    const r = new FileReader(); r.onload = (ev) => { 
+        try {
+            const d = JSON.parse(ev.target.result); 
+            localStorage.setItem('sentvoc_notes', JSON.stringify(d.notes || {})); 
+            localStorage.setItem('sentvoc_learned', JSON.stringify(d.learnedWords || [])); 
+            location.reload(); 
+        } catch(e) { alert("ভুল ফাইল!"); }
+    }; r.readAsText(f); 
+}
