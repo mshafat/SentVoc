@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v4.1 - Text Sanitizer & Learned List Restore
+// ভার্সন কোড নেম: SentVoc v4.2 - Original Bold Look & v2.4 Mastered Logic
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -6,12 +6,7 @@ let learnedWords = JSON.parse(localStorage.getItem('sentvoc_learned')) || [];
 let currentSessionCards = [];
 let currentIndex = 0;
 let isFlipped = false;
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
-    });
-}
+let isReviewingMastered = false;
 
 window.onload = () => {
     applyTheme();
@@ -19,10 +14,12 @@ window.onload = () => {
     handleIncomingShare();
 
     const inputArea = document.getElementById('note-input');
-    if(inputArea) inputArea.addEventListener('dblclick', handleSmartHighlight);
+    if(inputArea) {
+        inputArea.addEventListener('dblclick', handleSmartHighlight);
+    }
 };
 
-// --- স্মার্ট টেক্সট ক্লিনার (ডাবল টেক্সট ও কোটেশন ফিক্স) ---
+// --- শেয়ার লজিক (v4.1 থেকে উন্নত করা - ডাবল টেক্সট ও কোটেশন ফিক্স) ---
 function handleIncomingShare() {
     const urlParams = new URLSearchParams(window.location.search);
     const sharedText = urlParams.get('text');
@@ -31,28 +28,17 @@ function handleIncomingShare() {
     if (sharedText || sharedTitle) {
         let rawContent = (sharedText || "") + " " + (sharedTitle || "");
         
-        // ১. সব ধরণের কোটেশন মার্ক এবং বাড়তি স্পেস মুছে ফেলা
         let cleanText = decodeURIComponent(rawContent)
-            .replace(/(?:https?|ftp):\/\/[\n\S]+/g, '') // URL রিমুভ
-            .replace(/["'“”]/g, '') // সব ধরণের কোটেশন রিমুভ
+            .replace(/(?:https?|ftp):\/\/[\n\S]+/g, '') 
+            .replace(/["'“”]/g, '') 
             .replace(/\+/g, ' ')
             .trim();
 
-        // ২. ডুপ্লিকেট টেক্সট রিমুভ লজিক (বাক্যটি দুইবার থাকলে অর্ধেক করে ফেলা)
-        const words = cleanText.split(/\s+/);
-        const mid = Math.floor(words.length / 2);
-        const firstHalf = words.slice(0, mid).join(" ");
-        const secondHalf = words.slice(mid).join(" ");
-
-        if (firstHalf === secondHalf || cleanText.includes(firstHalf + " " + firstHalf)) {
-            cleanText = words.slice(0, mid).join(" ");
-        }
-        
-        // ৩. ওভারল্যাপিং টেক্সট ফিক্স (আপনার উদাহরণের মতো সমস্যা হলে)
-        const sentences = cleanText.split(". ");
-        if(sentences.length > 1 && sentences[0].includes(sentences[1])) {
-            cleanText = sentences[0];
-        }
+        // ডুপ্লিকেট টেক্সট রিমুভার
+        const half = Math.floor(cleanText.length / 2);
+        const part1 = cleanText.substring(0, half).trim();
+        const part2 = cleanText.substring(half).trim();
+        if(part1 === part2) cleanText = part1;
 
         setTimeout(() => {
             const inputArea = document.getElementById('note-input');
@@ -64,127 +50,151 @@ function handleIncomingShare() {
     }
 }
 
-// --- ডাটা ইমপোর্ট ফিক্স ---
+// --- কার্ড ডিসপ্লে (v4.0 এর বোল্ড লুক ফিরিয়ে আনা হয়েছে) ---
+function showCard() {
+    const card = currentSessionCards[currentIndex];
+    const content = document.getElementById('card-content');
+    if(!content) return;
+
+    document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
+    document.getElementById('prev-btn').disabled = currentIndex === 0;
+    
+    if (isFlipped) {
+        // v4.0 স্টাইল বোল্ড সেন্টেন্স
+        content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center";
+        const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
+            const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
+            if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
+            return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
+        }).join(" ");
+    } else {
+        // v4.0 স্টাইল বিগ বোল্ড ওয়ার্ড
+        content.innerText = card.word;
+        content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center";
+    }
+}
+
+// --- মাস্টারড বাটন ও লার্নড লিস্ট (v2.4 এর লজিক) ---
+function markAsLearned() {
+    if(!confirm("আয়ত্ত করেছেন? এটি লার্নড লিস্টে চলে যাবে।")) return;
+    
+    const card = currentSessionCards[currentIndex];
+    learnedWords.push(card);
+    localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
+    
+    // বর্তমান সেশন থেকে রিমুভ করা
+    currentSessionCards.splice(currentIndex, 1);
+    
+    if (currentSessionCards.length === 0) {
+        alert("সব কার্ড শেষ!");
+        showSection('input');
+    } else {
+        if(currentIndex >= currentSessionCards.length) currentIndex--;
+        isFlipped = false;
+        showCard();
+    }
+}
+
+function renderLearnedList() {
+    const list = document.getElementById('learned-list');
+    list.innerHTML = learnedWords.length === 0 ? '<p class="text-center py-10 text-slate-400 opacity-50">Mastered list is empty.</p>' : '';
+    
+    // v2.4 স্টাইল রিভার্স লিস্ট (নতুনগুলো আগে)
+    [...learnedWords].reverse().forEach((lw, idx) => {
+        const div = document.createElement('div');
+        div.className = "bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm mb-3 border-l-4 border-green-500";
+        div.innerHTML = `
+            <div class="flex justify-between">
+                <div>
+                    <p class="font-black text-indigo-600 dark:text-indigo-400 uppercase text-lg">${lw.word}</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${lw.sentence}</p>
+                </div>
+            </div>
+        `;
+        list.appendChild(div);
+    });
+}
+
+// --- সেশন শুরু (v2.4 লজিক) ---
+function startRepeat(mode) {
+    currentSessionCards = [];
+    isReviewingMastered = (mode === 'mastered');
+    
+    if (isReviewingMastered) {
+        currentSessionCards = [...learnedWords];
+    } else {
+        const now = Date.now();
+        Object.values(notes).forEach(day => {
+            day.forEach(c => {
+                // লার্নড লিস্টে থাকলে রিপিটে আসবে না
+                if(learnedWords.some(l => l.id === c.id)) return;
+                const age = now - (c.timestamp || 0);
+                if (mode === 'today' && age <= 86400000) currentSessionCards.push(c);
+                else if (mode === 'week' && age <= 604800000) currentSessionCards.push(c);
+                else if (mode === 'all') currentSessionCards.push(c);
+            });
+        });
+    }
+    
+    if (currentSessionCards.length === 0) return alert("কোন কার্ড নেই!");
+    
+    currentSessionCards.sort(() => Math.random() - 0.5);
+    currentIndex = 0; isFlipped = false;
+    
+    // রিভিউ মোডে মাস্টারড বাটন হাইড করা
+    const mBtn = document.getElementById('mastered-btn');
+    if(mBtn) mBtn.style.display = isReviewingMastered ? 'none' : 'block';
+    
+    showCard(); 
+    showSection('repeat');
+}
+
+// --- এক্সপোর্ট (শেয়ার অপশন সহ) ---
+async function exportData() {
+    const data = JSON.stringify({notes, learnedWords}, null, 2);
+    const fileName = `SentVoc_Backup.json`;
+    try {
+        const blob = new Blob([data], { type: 'application/json' });
+        const file = new File([blob], fileName, { type: 'application/json' });
+        if (navigator.share) {
+            await navigator.share({ files: [file], title: 'SentVoc Backup' });
+        } else {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            a.click();
+        }
+    } catch (err) { alert("Export failed"); }
+}
+
+// --- ইমপোর্ট (v2.4 ফিক্সড) ---
 function importData(e) { 
     const file = e.target.files[0]; 
     if(!file) return; 
     const reader = new FileReader(); 
     reader.onload = (event) => { 
         try {
-            const data = JSON.parse(event.target.result); 
-            if(data.notes) notes = data.notes;
-            if(data.learnedWords) learnedWords = data.learnedWords;
-            localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-            localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
-            alert("Success!"); location.reload(); 
+            const d = JSON.parse(event.target.result); 
+            localStorage.setItem('sentvoc_notes', JSON.stringify(d.notes || {}));
+            localStorage.setItem('sentvoc_learned', JSON.stringify(d.learnedWords || []));
+            alert("Data Imported!"); 
+            location.reload(); 
         } catch (err) { alert("Invalid File"); }
     }; 
     reader.readAsText(file); 
 }
 
-// --- লার্নড সেকশন এবং রিভিউ (v2.2 স্টাইল) ---
-function showLearned() {
-    const container = document.getElementById('learned-list');
-    if(!container) return;
-    
-    container.innerHTML = "";
-    if (learnedWords.length === 0) {
-        container.innerHTML = '<div class="text-center p-10 opacity-50">কোন শব্দ এখনো মাস্টার করা হয়নি।</div>';
-    } else {
-        learnedWords.forEach((item, idx) => {
-            const div = document.createElement('div');
-            div.className = "p-4 mb-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border-l-4 border-green-500 animate-slide-in";
-            div.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h4 class="font-bold text-lg text-slate-800 dark:text-white uppercase">${item.word}</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">${item.sentence}</p>
-                    </div>
-                    <button onclick="removeFromLearned(${idx})" class="text-red-400 hover:text-red-600">✕</button>
-                </div>
-            `;
-            container.appendChild(div);
-        });
-    }
-    showSection('learned');
+// --- ইউটিলিটি ফাংশনস ---
+function showSection(s) {
+    document.querySelectorAll('#input-view, #repeat-view, #learned-view').forEach(e => e.classList.add('hidden'));
+    if(s === 'learned') renderLearnedList();
+    document.getElementById(s+'-view').classList.remove('hidden');
 }
 
-function removeFromLearned(index) {
-    if(confirm("এটি কি আবার লার্নিং লিস্টে পাঠাতে চান?")) {
-        learnedWords.splice(index, 1);
-        localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
-        showLearned();
-    }
-}
-
-function startLearnedReview() {
-    if (learnedWords.length === 0) return alert("রিভিউ করার জন্য কোন শব্দ নেই!");
-    currentSessionCards = [...learnedWords];
-    currentSessionCards.sort(() => Math.random() - 0.5);
-    currentIndex = 0; isFlipped = false;
-    showCard();
-    showSection('repeat');
-}
-
-// --- কার্ড লজিক ও অন্যান্য ---
-function markAsLearned() {
-    const card = currentSessionCards[currentIndex];
-    if (!learnedWords.some(w => w.id === card.id)) {
-        learnedWords.push(card);
-        localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
-        alert("Mastered! Moved to Learned List.");
-        nextCard();
-    }
-}
-
-async function exportData() {
-    const data = JSON.stringify({notes, learnedWords}, null, 2);
-    const fileName = `SentVoc_Backup_${new Date().toISOString().slice(0,10)}.json`;
-    try {
-        const blob = new Blob([data], { type: 'application/json' });
-        const file = new File([blob], fileName, { type: 'application/json' });
-        if (navigator.share) {
-            await navigator.share({ files: [file], title: 'SentVoc Backup' });
-        } else { downloadFile(data, fileName); }
-    } catch (err) { downloadFile(data, fileName); }
-}
-
-function downloadFile(content, name) {
-    const blob = new Blob([content], {type: "application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-}
-
-function showCard() {
-    const card = currentSessionCards[currentIndex];
-    const content = document.getElementById('card-content');
-    document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
-    document.getElementById('prev-btn').disabled = currentIndex === 0;
-    
-    content.style.padding = "2px 5px";
-    if (isFlipped) {
-        const style = getDynamicFontSize(card.sentence, 'sentence');
-        content.style.fontSize = style.size;
-        content.style.lineHeight = style.lh;
-        const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
-            const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
-            if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-bold italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
-            return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
-        }).join(" ");
-    } else {
-        content.innerText = card.word;
-        content.style.fontSize = getDynamicFontSize(card.word, 'word');
-    }
-}
-
-function getDynamicFontSize(text, type) {
-    const wordCount = text.split(/\s+/).length;
-    if (type === 'word') return text.length > 12 ? "2rem" : "3rem";
-    return { size: wordCount > 35 ? "1.2rem" : "1.5rem", lh: "1.4" };
-}
+function flipCard() { isFlipped = !isFlipped; showCard(); }
+function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("সেশন শেষ!"); showSection('input'); } }
+function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function saveNote() {
     const input = document.getElementById('note-input');
@@ -196,39 +206,11 @@ function saveNote() {
         notes[date].push({ word: w.innerText.trim(), sentence: input.innerText.trim(), id: Date.now() + Math.random(), timestamp: Date.now() });
     });
     localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-    input.innerHTML = ""; alert("Saved!");
+    input.innerHTML = ""; alert("সেভ সফল হয়েছে!");
 }
-
-function startRepeat(mode) {
-    currentSessionCards = [];
-    const now = Date.now();
-    Object.values(notes).forEach(day => {
-        day.forEach(c => {
-            if(learnedWords.some(l => l.id === c.id)) return;
-            const age = now - (c.timestamp || 0);
-            if (mode === 'today' && age <= 86400000) currentSessionCards.push(c);
-            else if (mode === 'week' && age <= 604800000) currentSessionCards.push(c);
-            else if (mode === 'all') currentSessionCards.push(c);
-        });
-    });
-    if (currentSessionCards.length === 0) return alert("No cards!");
-    currentSessionCards.sort(() => Math.random() - 0.5);
-    currentIndex = 0; isFlipped = false;
-    showCard(); showSection('repeat');
-}
-
-function showSection(s) {
-    document.querySelectorAll('#input-view, #repeat-view, #learned-view').forEach(e => e.classList.add('hidden'));
-    document.getElementById(s+'-view').classList.remove('hidden');
-}
-
-function flipCard() { isFlipped = !isFlipped; showCard(); }
-function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { showSection('input'); } }
-function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function setupLanguages() {
     const lSel = document.getElementById('learn-lang'), tSel = document.getElementById('target-lang');
-    if(!lSel) return;
     Object.entries(languages).forEach(([c, n]) => { 
         lSel.add(new Option(n, c)); 
         tSel.add(new Option(n, c)); 
@@ -243,15 +225,13 @@ function applyTheme() {
     document.documentElement.classList.toggle('dark', isDark);
 }
 
-function toggleSettings() { document.getElementById('settings-modal').classList.toggle('hidden'); }
-
-function handleSmartHighlight(e) {
-    const selection = window.getSelection();
-    if (!selection.rangeCount || selection.toString().trim() === "") return;
-    const range = selection.getRangeAt(0);
+function handleSmartHighlight() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || sel.toString().trim() === "") return;
+    const range = sel.getRangeAt(0);
     const span = document.createElement('span');
     span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline underline-offset-4";
-    span.innerText = selection.toString().trim();
+    span.innerText = sel.toString().trim();
     range.deleteContents();
     range.insertNode(span);
     window.getSelection().removeAllRanges();
@@ -260,7 +240,8 @@ function handleSmartHighlight(e) {
 async function lookup(word) {
     const modal = document.getElementById('dict-modal');
     modal.classList.replace('hidden', 'flex');
-    const sl = document.getElementById('learn-lang').value, tl = document.getElementById('target-lang').value;
+    const sl = document.getElementById('learn-lang').value;
+    const tl = document.getElementById('target-lang').value;
     try {
         const wRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(word)}`);
         const wData = await wRes.json();
