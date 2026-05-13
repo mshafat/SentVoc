@@ -7,6 +7,9 @@ let currentIndex = 0;
 let isFlipped = false;
 let isReviewingMastered = false;
 
+// আইফোন অডিও আনলক ট্র্যাকার
+let iosAudioUnlocked = false;
+
 function applyTheme() {
     const saved = localStorage.getItem('theme');
     const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -30,43 +33,60 @@ window.onload = () => {
     });
     lSel.value = localStorage.getItem('pref_learn') || "ur";
     tSel.value = localStorage.getItem('pref_target') || "bn";
-    lSel.onchange = () => localStorage.setItem('pref_learn', lSel.value);
-    tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
+    
+    // আইফোনের সাইলেন্ট অডিও গেটওয়ে আনলক করা
+    const unlockEvents = ['touchstart', 'click', 'keydown'];
+    unlockEvents.forEach(event => {
+        document.body.addEventListener(event, unlockIOSAudio, { once: true });
+    });
 };
 
-// --- উন্নত অডিও ফাংশন (লিনাক্স ও আইফোন ফিক্স) ---
+function unlockIOSAudio() {
+    if (iosAudioUnlocked) return;
+    // একটি খালি সাউন্ড প্লে করে ব্রাউজারের অডিও চ্যানেলটি ওপেন করা
+    window.speechSynthesis.cancel();
+    const silent = new SpeechSynthesisUtterance("");
+    window.speechSynthesis.speak(silent);
+    iosAudioUnlocked = true;
+    console.log("v2.4: Audio Engine Unlocked for iOS");
+}
+
+// --- অডিও ইঞ্জিন (v2.4: Hybrid Cloud + System TTS) ---
 function speakText(event) {
-    if (event) event.stopPropagation(); 
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
     
     const card = currentSessionCards[currentIndex];
     const textToSpeak = isFlipped ? card.sentence : card.word;
     const langCode = document.getElementById('learn-lang').value;
 
-    // ১. আগের সব সাউন্ড প্রসেস থামিয়ে দেওয়া
     window.speechSynthesis.cancel();
 
-    // ২. গুগল টিটিএস এর সরাসরি অডিও ফাইল (গুগল ট্রান্সলেশন মেথড)
+    // সরাসরি গুগল টিটিএস সোর্স
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&total=1&idx=0&textlen=${textToSpeak.length}&client=tw-ob`;
     
     const audio = new Audio();
     audio.src = url;
-    // লিনাক্সে সিকিউরিটি এরর এড়াতে ক্রস অরিজিন এননিম্যাস করা হয়েছে
-    audio.crossOrigin = "anonymous"; 
+    audio.crossOrigin = "anonymous";
 
-    // ৩. প্লে করার কমান্ড
-    audio.play().then(() => {
-        console.log("সাউন্ড বাজছে...");
-    }).catch(err => {
-        console.warn("গুগল টিটিএস ব্লক হয়েছে, সিস্টেম ভয়েস ট্রাই করছি...");
-        // ৪. গুগল ব্লক করলে সিস্টেমের নিজস্ব ভয়েস দিয়ে চেষ্টা
-        const ut = new SpeechSynthesisUtterance(textToSpeak);
-        ut.lang = langCode;
-        ut.rate = 0.9;
-        window.speechSynthesis.speak(ut);
-    });
+    // আইফোন এবং লিনাক্স ব্রেভ/ফায়ারফক্সের জন্য সেফটি প্লেব্যাক
+    const playPromise = audio.play();
+
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.warn("Cloud TTS failed, falling back to System TTS:", error);
+            // ব্যাকআপ হিসেবে সিস্টেমের নিজস্ব টিটিএস ব্যবহার
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = langCode;
+            utterance.rate = 0.85; // লিনাক্স ও আইফোনের জন্য একটু ধীর গতি ভালো কাজ করে
+            window.speechSynthesis.speak(utterance);
+        });
+    }
 }
 
-// --- বাকি সব ফাংশন ---
+// --- কোর ফিচারসমূহ (v2.2 থেকে অক্ষুণ্ণ) ---
 function handleSelection() {
     const sel = window.getSelection();
     const btn = document.getElementById('bold-tool');
@@ -97,7 +117,7 @@ function saveNote() {
         notes[date].push({ word: w.innerText.trim(), sentence: temp.innerText.trim(), id: Date.now() + Math.random(), timestamp: Date.now() });
     });
     localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-    input.innerHTML = ""; alert("সেভ করা হয়েছে!");
+    input.innerHTML = ""; alert("সেভ সফল হয়েছে!");
 }
 
 function startRepeat(mode) {
@@ -117,7 +137,7 @@ function startRepeat(mode) {
             });
         });
     }
-    if (currentSessionCards.length === 0) return alert("কোন কার্ড পাওয়া যায়নি!");
+    if (currentSessionCards.length === 0) return alert("কোন কার্ড নেই!");
     currentSessionCards.sort(() => Math.random() - 0.5);
     currentIndex = 0; isFlipped = false;
     document.getElementById('mastered-btn').style.display = isReviewingMastered ? 'none' : 'block';
@@ -136,7 +156,7 @@ function showCard() {
             if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-bold italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
             return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
         }).join(" ");
-        content.className = "text-2xl font-semibold text-slate-700 dark:text-slate-300";
+        content.className = "text-2xl font-semibold text-slate-700 dark:text-slate-300 leading-snug";
     } else {
         content.innerText = card.word;
         content.className = "text-4xl font-black text-slate-800 dark:text-white uppercase";
@@ -148,7 +168,7 @@ function nextCard() { if (currentIndex < currentSessionCards.length - 1) { curre
 function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function markAsLearned() {
-    if(!confirm("আয়ত্ত করা হয়েছে?")) return;
+    if(!confirm("আয়ত্ত করেছেন?")) return;
     learnedWords.push(currentSessionCards[currentIndex]);
     localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
     currentSessionCards.splice(currentIndex, 1);
@@ -174,7 +194,7 @@ function showSection(s) {
 
 function renderLearnedList() {
     const list = document.getElementById('learned-list');
-    list.innerHTML = learnedWords.length === 0 ? '<p class="text-center py-10 text-slate-400">এখনও কিছু শেখা হয়নি।</p>' : '';
+    list.innerHTML = learnedWords.length === 0 ? '<p class="text-center py-10 text-slate-400">Mastered list empty.</p>' : '';
     [...learnedWords].reverse().forEach(lw => {
         const div = document.createElement('div');
         div.className = "bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 shadow-sm mb-3";
@@ -186,7 +206,7 @@ function renderLearnedList() {
 async function lookup(word) {
     if (window.event) window.event.stopPropagation();
     const modal = document.getElementById('dict-modal');
-    document.getElementById('dict-word').innerText = "অনুবাদ হচ্ছে...";
+    document.getElementById('dict-word').innerText = "অনুসন্ধান চলছে...";
     modal.classList.replace('hidden', 'flex');
     const sl = document.getElementById('learn-lang').value;
     const tl = document.getElementById('target-lang').value;
@@ -198,7 +218,7 @@ async function lookup(word) {
         document.getElementById('dict-word').innerText = word;
         document.getElementById('dict-meaning').innerText = wData[0][0][0];
         document.getElementById('sentence-meaning').innerText = sData[0][0][0];
-    } catch (e) { document.getElementById('dict-meaning').innerText = "ত্রুটি"; }
+    } catch (e) { document.getElementById('dict-meaning').innerText = "অনুবাদে সমস্যা হয়েছে।"; }
 }
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
@@ -211,7 +231,7 @@ function toggleSettings() {
 function exportData() { 
     const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"}); 
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); 
-    a.download = `SentVoc_Backup.json`; a.click(); 
+    a.download = `SentVoc_v2.4_Backup.json`; a.click(); 
 }
 
 function importData(e) { 
