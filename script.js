@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v3.1 - Maximum Real Estate & Intelligent Scaling
+// ভার্সন কোড নেম: SentVoc v3.2 - Layout Stability & Font Fix
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -21,32 +21,22 @@ window.onload = () => {
     if(inputArea) inputArea.addEventListener('dblclick', handleSmartHighlight);
 };
 
-// --- উন্নত ডাইনামিক স্কেলিং লজিক (v3.1) ---
+// --- ফন্ট স্কেলিং লজিক (v3.2: আরও সুশৃঙ্খল) ---
 function getDynamicFontSize(text, type) {
     const wordCount = text.split(/\s+/).length;
     const charCount = text.length;
     
     if (type === 'word') {
         const isLatin = /^[A-Za-z0-9\s!@#$%^&*(),.?":{}|<>]+$/.test(text);
-        let size = isLatin ? 2.5 : 3.5;
-        if (charCount > 15) size *= 0.65;
-        else if (charCount > 10) size *= 0.85;
+        let size = isLatin ? 2.3 : 3.2; 
+        if (charCount > 12) size *= 0.7;
         return size + "rem";
     } else {
-        // বাক্যের জন্য নতুন স্কেলিং (v3.1 - বড় ফন্ট ধরে রাখার চেষ্টা)
-        let size = 1.6; 
-        let lineHeight = 1.4;
-
-        if (wordCount > 60) {
-            size = 1.0;
-            lineHeight = 1.2;
-        } else if (wordCount > 40) {
-            size = 1.2;
-            lineHeight = 1.3;
-        } else if (wordCount > 25) {
-            size = 1.4;
-            lineHeight = 1.35;
-        }
+        let size = 1.5; 
+        let lineHeight = 1.5;
+        if (wordCount > 55) { size = 0.95; lineHeight = 1.2; }
+        else if (wordCount > 35) { size = 1.15; lineHeight = 1.3; }
+        else if (wordCount > 20) { size = 1.35; lineHeight = 1.4; }
         return { size: size + "rem", lh: lineHeight };
     }
 }
@@ -58,11 +48,12 @@ function showCard() {
     document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
     document.getElementById('prev-btn').disabled = currentIndex === 0;
     
-    // কার্ডের কন্টেইনার স্টাইল অ্যাডজাস্টমেন্ট (v3.1)
-    content.style.wordBreak = "break-word";
-    content.style.overflowWrap = "anywhere";
+    // কার্ডের ভেতর ভাঙা রোধ করতে CSS রিসেট (v3.2)
+    content.style.display = "block"; 
     content.style.width = "100%";
-    content.style.padding = "0.5rem"; // চারপাশের প্যাডিং কমিয়ে জায়গা বাড়ানো হয়েছে
+    content.style.padding = "10px 5px";
+    content.style.wordBreak = "normal"; // শব্দ মাঝখান থেকে ভাঙবে না
+    content.style.overflowWrap = "break-word";
 
     if (isFlipped) {
         const style = getDynamicFontSize(card.sentence, 'sentence');
@@ -76,17 +67,16 @@ function showCard() {
             return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
         }).join(" ");
         
-        // v3.1: কার্ডের উচ্চতা অনুযায়ী টেক্সট এলাইনমেন্ট
-        content.className = "font-semibold text-slate-700 dark:text-slate-300 text-center flex items-center justify-center min-h-[250px] overflow-y-auto";
+        content.className = "font-semibold text-slate-700 dark:text-slate-300 text-center";
     } else {
         content.innerText = card.word;
-        content.className = "font-black text-slate-800 dark:text-white uppercase text-center tracking-tight flex items-center justify-center min-h-[250px]";
         content.style.fontSize = getDynamicFontSize(card.word, 'word');
-        content.style.lineHeight = "normal";
+        content.style.lineHeight = "1.2";
+        content.className = "font-black text-slate-800 dark:text-white uppercase text-center tracking-tight";
     }
 }
 
-// --- স্মার্ট হাইলাইট ---
+// --- স্মার্ট হাইলাইট (v2.6 থেকে অব্যাহত) ---
 function handleSmartHighlight(e) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.toString().trim() === "") return;
@@ -125,7 +115,7 @@ function toggleTheme() {
 
 function toggleSettings() {
     const m = document.getElementById('settings-modal');
-    if(m) m.classList.toggle('hidden', !m.classList.contains('hidden')), m.classList.toggle('flex', m.classList.contains('hidden'));
+    if(m) m.classList.toggle('hidden');
 }
 
 // --- অডিও ইঞ্জিন ---
@@ -141,7 +131,7 @@ function speakText(event) {
     setTimeout(() => { window.speechSynthesis.speak(utterance); }, 50);
 }
 
-// --- বাকি কোর ফাংশন ---
+// --- কোর ফাংশন ---
 function saveNote() {
     const input = document.getElementById('note-input');
     const words = input.querySelectorAll('.vocab-word');
