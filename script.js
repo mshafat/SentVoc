@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v2.9 - Global Dynamic Scaling & Responsive Sentences
+// ভার্সন কোড নেম: SentVoc v3.0 - Ultimate Stability (Final)
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -7,8 +7,9 @@ let currentSessionCards = [];
 let currentIndex = 0;
 let isFlipped = false;
 
+// ১. পেজ লোড এবং সেটিংস ইনিশিয়ালাইজেশন
 window.onload = () => {
-    applyTheme();
+    applyTheme(); // থিম লোড
     const lSel = document.getElementById('learn-lang'), tSel = document.getElementById('target-lang');
     Object.entries(languages).forEach(([c, n]) => { 
         lSel.add(new Option(n, c)); 
@@ -17,11 +18,40 @@ window.onload = () => {
     lSel.value = localStorage.getItem('pref_learn') || "ur";
     tSel.value = localStorage.getItem('pref_target') || "bn";
     
+    // স্মার্ট হাইলাইট লিসেনার
     const inputArea = document.getElementById('note-input');
-    inputArea.addEventListener('dblclick', handleSmartHighlight);
+    if(inputArea) inputArea.addEventListener('dblclick', handleSmartHighlight);
 };
 
-// --- উন্নত ডাইনামিক স্কেলিং লজিক (v2.9) ---
+// ২. থিম এবং সেটিংস ফাংশন (যা v2.9 এ মিসিং ছিল)
+function applyTheme() {
+    const saved = localStorage.getItem('theme');
+    const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark);
+    const icon = document.getElementById('theme-icon');
+    if(icon) icon.innerText = isDark ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('theme-icon');
+    if(icon) icon.innerText = isDark ? '☀️' : '🌙';
+}
+
+function toggleSettings() {
+    const m = document.getElementById('settings-modal');
+    if(!m) return;
+    if(m.classList.contains('hidden')) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+    } else {
+        m.classList.remove('flex');
+        m.classList.add('hidden');
+    }
+}
+
+// ৩. ডাইনামিক ফন্ট স্কেলিং লজিক (v2.9 এর ফিচার)
 function getDynamicFontSize(text, type) {
     const charCount = text.length;
     const wordCount = text.split(/\s+/).length;
@@ -33,24 +63,16 @@ function getDynamicFontSize(text, type) {
         else if (charCount > 10) size *= 0.8;
         return size + "rem";
     } else {
-        // বাক্যের জন্য স্কেলিং
-        let size = 1.5; // ডিফল্ট ১.৫ রেম
+        let size = 1.5;
         let lineHeight = 1.4;
-
-        if (wordCount > 50) {
-            size = 0.9;
-            lineHeight = 1.1;
-        } else if (wordCount > 35) {
-            size = 1.1;
-            lineHeight = 1.2;
-        } else if (wordCount > 20) {
-            size = 1.3;
-            lineHeight = 1.3;
-        }
+        if (wordCount > 50) { size = 0.9; lineHeight = 1.1; }
+        else if (wordCount > 35) { size = 1.1; lineHeight = 1.2; }
+        else if (wordCount > 20) { size = 1.3; lineHeight = 1.3; }
         return { size: size + "rem", lh: lineHeight };
     }
 }
 
+// ৪. কার্ড ডিসপ্লে ফাংশন
 function showCard() {
     const card = currentSessionCards[currentIndex];
     const content = document.getElementById('card-content');
@@ -62,7 +84,6 @@ function showCard() {
     content.style.overflowWrap = "anywhere";
 
     if (isFlipped) {
-        // বাক্যের জন্য ডাইনামিক স্টাইল প্রয়োগ
         const style = getDynamicFontSize(card.sentence, 'sentence');
         content.style.fontSize = style.size;
         content.style.lineHeight = style.lh;
@@ -75,7 +96,6 @@ function showCard() {
         }).join(" ");
         content.className = "font-semibold text-slate-700 dark:text-slate-300 text-center px-4 overflow-y-auto max-h-[300px]";
     } else {
-        // শব্দের জন্য ডাইনামিক স্টাইল প্রয়োগ
         content.innerText = card.word;
         content.className = "font-black text-slate-800 dark:text-white uppercase text-center tracking-tight px-2";
         content.style.fontSize = getDynamicFontSize(card.word, 'word');
@@ -83,7 +103,7 @@ function showCard() {
     }
 }
 
-// --- স্মার্ট হাইলাইট ফিচার ---
+// ৫. স্মার্ট হাইলাইট (v2.6 থেকে অব্যাহত)
 function handleSmartHighlight(e) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.toString().trim() === "") return;
@@ -105,7 +125,7 @@ function handleSmartHighlight(e) {
     window.getSelection().removeAllRanges();
 }
 
-// --- অডিও ইঞ্জিন (iOS Native Fix) ---
+// ৬. অডিও ইঞ্জিন (iOS Native Fix)
 function speakText(event) {
     if (event) event.stopPropagation();
     const card = currentSessionCards[currentIndex];
@@ -118,13 +138,14 @@ function speakText(event) {
     setTimeout(() => { window.speechSynthesis.speak(utterance); }, 50);
 }
 
-// --- অন্যান্য ফাংশন ---
+// ৭. কোর ফাংশনসমূহ (সেভ, নেক্সট, ডিলিট)
 function saveNote() {
     const input = document.getElementById('note-input');
     const temp = document.createElement('div');
     temp.innerHTML = input.innerHTML;
     const words = temp.querySelectorAll('.vocab-word');
     if (words.length === 0) return alert("Double tap to highlight a word!");
+    
     const date = new Date().toLocaleDateString();
     words.forEach(w => {
         if (!notes[date]) notes[date] = [];
@@ -176,8 +197,18 @@ async function lookup(word) {
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
 
-function applyTheme() {
-    const saved = localStorage.getItem('theme');
-    const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', isDark);
+function exportData() { 
+    const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"}); 
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); 
+    a.download = `SentVoc_v3.0_Backup.json`; a.click(); 
+}
+
+function importData(e) { 
+    const f = e.target.files[0]; if(!f)return; 
+    const r = new FileReader(); r.onload = (ev) => { 
+        const d = JSON.parse(ev.target.result); 
+        localStorage.setItem('sentvoc_notes', JSON.stringify(d.notes)); 
+        localStorage.setItem('sentvoc_learned', JSON.stringify(d.learnedWords || [])); 
+        location.reload(); 
+    }; r.readAsText(f); 
 }
