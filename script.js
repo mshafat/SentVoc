@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v2.5 - iPhone Native Speech Fix
+// ভার্সন কোড নেম: SentVoc v2.6 - Double Tap Highlighting
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -32,81 +32,84 @@ window.onload = () => {
     lSel.value = localStorage.getItem('pref_learn') || "ur";
     tSel.value = localStorage.getItem('pref_target') || "bn";
     
-    // আইফোনের জন্য অডিও ইঞ্জিন আগেভাগে রেডি করা
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.getVoices();
-    }
+    // ডাবল ট্যাপ লিসেনার যোগ করা (ইনপুট ফিল্ডের জন্য)
+    const inputArea = document.getElementById('note-input');
+    inputArea.addEventListener('dblclick', handleSmartHighlight);
 };
 
-// --- আইফোন স্পেশাল অডিও ইঞ্জিন (v2.5) ---
-function speakText(event) {
-    if (event) {
-        event.stopPropagation();
-        event.preventDefault();
+// --- নতুন স্মার্ট হাইলাইট ফিচার (v2.6) ---
+function handleSmartHighlight(e) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.toString().trim() === "") return;
+
+    const range = selection.getRangeAt(0);
+    const selectedText = selection.toString().trim();
+
+    // চেক করা হচ্ছে সিলেকশনটি কি অলরেডি হাইলাইটেড কি না
+    let parent = range.commonAncestorContainer;
+    if (parent.nodeType === 3) parent = parent.parentNode;
+
+    if (parent.classList.contains('vocab-word')) {
+        // যদি অলরেডি হাইলাইট থাকে, তবে হাইলাইট তুলে দাও
+        const textNode = document.createTextNode(parent.innerText);
+        parent.parentNode.replaceChild(textNode, parent);
+    } else {
+        // যদি হাইলাইট না থাকে, তবে নতুন হাইলাইট করো
+        const span = document.createElement('span');
+        span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline underline-offset-4";
+        span.innerText = selectedText;
+        
+        range.deleteContents();
+        range.insertNode(span);
     }
+    
+    window.getSelection().removeAllRanges();
+}
+
+// --- অডিও ইঞ্জিন (v2.5 এর আইফোন ফিক্সসহ) ---
+function speakText(event) {
+    if (event) event.stopPropagation();
     
     const card = currentSessionCards[currentIndex];
     const textToSpeak = isFlipped ? card.sentence : card.word;
     const langCode = document.getElementById('learn-lang').value;
 
-    // ১. আগের সব সাউন্ড বন্ধ করা
     window.speechSynthesis.cancel();
-
-    // ২. স্পিচ অবজেক্ট তৈরি
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    
-    // ৩. ভাষা সেট করা
     utterance.lang = langCode;
     utterance.rate = 0.9;
-    utterance.pitch = 1.0;
 
-    // ৪. আইফোনের জন্য বিশেষ হ্যাক: ভলিউম এবং ভয়েস সিলেকশন
-    utterance.volume = 1.0;
-
-    // ৫. আইফোনে অনেক সময় সরাসরি .speak কাজ করে না, যদি না একটি ছোট বিরতি দেওয়া হয়
     setTimeout(() => {
         window.speechSynthesis.speak(utterance);
     }, 50);
 
-    // ৬. ব্যাকআপ (যদি আইফোন সিস্টেম ভয়েস সাপোর্ট না করে, তখন গুগল টিটিএস ট্রাই করবে)
     utterance.onerror = () => {
         const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${langCode}&client=tw-ob`);
-        audio.play().catch(e => console.log("iPhone Blocked Audio Playback"));
+        audio.play().catch(e => console.log("Audio Error"));
     };
 }
 
-// --- বাকি সব ফাংশন v2.4 এর মতই থাকছে ---
-function handleSelection() {
-    const sel = window.getSelection();
-    const btn = document.getElementById('bold-tool');
-    if (sel.toString().trim().length > 0) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
-}
-
-function makeBold() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const span = document.createElement('span');
-    span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline underline-offset-4";
-    range.surroundContents(span);
-    window.getSelection().removeAllRanges();
-    document.getElementById('bold-tool').classList.add('hidden');
-}
-
+// --- বাকি সব ফাংশন ---
 function saveNote() {
     const input = document.getElementById('note-input');
     const temp = document.createElement('div');
     temp.innerHTML = input.innerHTML;
     const words = temp.querySelectorAll('.vocab-word');
-    if (words.length === 0) return alert("Select word first!");
+    if (words.length === 0) return alert("Double tap to highlight a word first!");
+    
     const date = new Date().toLocaleDateString();
     words.forEach(w => {
         if (!notes[date]) notes[date] = [];
-        notes[date].push({ word: w.innerText.trim(), sentence: temp.innerText.trim(), id: Date.now() + Math.random(), timestamp: Date.now() });
+        notes[date].push({ 
+            word: w.innerText.trim(), 
+            sentence: temp.innerText.trim(), 
+            id: Date.now() + Math.random(), 
+            timestamp: Date.now() 
+        });
     });
     localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-    input.innerHTML = ""; alert("Saved!");
+    input.innerHTML = ""; 
+    alert("Saved Successfully!");
 }
 
 function startRepeat(mode) {
@@ -126,7 +129,7 @@ function startRepeat(mode) {
             });
         });
     }
-    if (currentSessionCards.length === 0) return alert("No cards!");
+    if (currentSessionCards.length === 0) return alert("No cards found!");
     currentSessionCards.sort(() => Math.random() - 0.5);
     currentIndex = 0; isFlipped = false;
     document.getElementById('mastered-btn').style.display = isReviewingMastered ? 'none' : 'block';
@@ -145,15 +148,13 @@ function showCard() {
             if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-bold italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
             return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
         }).join(" ");
-        content.className = "text-2xl font-semibold text-slate-700 dark:text-slate-300 leading-snug";
     } else {
         content.innerText = card.word;
-        content.className = "text-4xl font-black text-slate-800 dark:text-white uppercase";
     }
 }
 
 function flipCard() { isFlipped = !isFlipped; showCard(); }
-function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Done!"); showSection('input'); } }
+function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Session complete!"); showSection('input'); } }
 function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
 function markAsLearned() {
@@ -195,10 +196,9 @@ function renderLearnedList() {
 async function lookup(word) {
     if (window.event) window.event.stopPropagation();
     const modal = document.getElementById('dict-modal');
-    document.getElementById('dict-word').innerText = "Translating...";
+    document.getElementById('dict-word').innerText = "Searching...";
     modal.classList.replace('hidden', 'flex');
-    const sl = document.getElementById('learn-lang').value;
-    const tl = document.getElementById('target-lang').value;
+    const sl = document.getElementById('learn-lang').value, tl = document.getElementById('target-lang').value;
     try {
         const wRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(word)}`);
         const wData = await wRes.json();
@@ -207,11 +207,10 @@ async function lookup(word) {
         document.getElementById('dict-word').innerText = word;
         document.getElementById('dict-meaning').innerText = wData[0][0][0];
         document.getElementById('sentence-meaning').innerText = sData[0][0][0];
-    } catch (e) { document.getElementById('dict-meaning').innerText = "Error"; }
+    } catch (e) { document.getElementById('dict-meaning').innerText = "Translation error"; }
 }
 
 function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
-
 function toggleSettings() {
     const m = document.getElementById('settings-modal');
     m.classList.contains('hidden') ? m.classList.replace('hidden', 'flex') : m.classList.replace('flex', 'hidden');
@@ -220,7 +219,7 @@ function toggleSettings() {
 function exportData() { 
     const blob = new Blob([JSON.stringify({notes, learnedWords})], {type: "application/json"}); 
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); 
-    a.download = `SentVoc_v2.5_Backup.json`; a.click(); 
+    a.download = `SentVoc_v2.6_Backup.json`; a.click(); 
 }
 
 function importData(e) { 
