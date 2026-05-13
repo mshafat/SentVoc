@@ -1,4 +1,4 @@
-// ভার্সন কোড নেম: SentVoc v3.2 - Layout Stability & Font Fix
+// ভার্সন কোড নেম: SentVoc v3.3 - Expanded Vertical Bounds & Layout Stability
 const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
 
 let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
@@ -21,7 +21,7 @@ window.onload = () => {
     if(inputArea) inputArea.addEventListener('dblclick', handleSmartHighlight);
 };
 
-// --- ফন্ট স্কেলিং লজিক (v3.2: আরও সুশৃঙ্খল) ---
+// --- ফন্ট স্কেলিং লজিক (v3.3: ভার্টিক্যাল স্পেস অপ্টিমাইজড) ---
 function getDynamicFontSize(text, type) {
     const wordCount = text.split(/\s+/).length;
     const charCount = text.length;
@@ -29,14 +29,15 @@ function getDynamicFontSize(text, type) {
     if (type === 'word') {
         const isLatin = /^[A-Za-z0-9\s!@#$%^&*(),.?":{}|<>]+$/.test(text);
         let size = isLatin ? 2.3 : 3.2; 
-        if (charCount > 12) size *= 0.7;
+        if (charCount > 12) size *= 0.75;
         return size + "rem";
     } else {
-        let size = 1.5; 
-        let lineHeight = 1.5;
-        if (wordCount > 55) { size = 0.95; lineHeight = 1.2; }
-        else if (wordCount > 35) { size = 1.15; lineHeight = 1.3; }
-        else if (wordCount > 20) { size = 1.35; lineHeight = 1.4; }
+        // বাক্যের জন্য উন্নত স্কেলিং
+        let size = 1.55; 
+        let lineHeight = 1.45;
+        if (wordCount > 55) { size = 1.05; lineHeight = 1.25; }
+        else if (wordCount > 35) { size = 1.25; lineHeight = 1.35; }
+        else if (wordCount > 20) { size = 1.45; lineHeight = 1.4; }
         return { size: size + "rem", lh: lineHeight };
     }
 }
@@ -48,11 +49,13 @@ function showCard() {
     document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
     document.getElementById('prev-btn').disabled = currentIndex === 0;
     
-    // কার্ডের ভেতর ভাঙা রোধ করতে CSS রিসেট (v3.2)
+    // v3.3: কন্টেইনার মার্জিন ও প্যাডিং মিনিমাইজ করা হয়েছে ২ লাইন জায়গা বাড়াতে
     content.style.display = "block"; 
     content.style.width = "100%";
-    content.style.padding = "10px 5px";
-    content.style.wordBreak = "normal"; // শব্দ মাঝখান থেকে ভাঙবে না
+    content.style.padding = "2px 5px"; // ওপর-নিচে প্যাডিং কমিয়ে আনা হয়েছে
+    content.style.marginTop = "0px";   // অতিরিক্ত মার্জিন রিমুভ
+    content.style.marginBottom = "0px";
+    content.style.wordBreak = "normal"; 
     content.style.overflowWrap = "break-word";
 
     if (isFlipped) {
@@ -72,11 +75,11 @@ function showCard() {
         content.innerText = card.word;
         content.style.fontSize = getDynamicFontSize(card.word, 'word');
         content.style.lineHeight = "1.2";
-        content.className = "font-black text-slate-800 dark:text-white uppercase text-center tracking-tight";
+        content.className = "font-black text-slate-800 dark:text-white uppercase text-center tracking-tight pt-4"; // ফ্রন্ট সাইডে সামান্য প্যাডিং যাতে ওপরে না লেগে যায়
     }
 }
 
-// --- স্মার্ট হাইলাইট (v2.6 থেকে অব্যাহত) ---
+// --- স্মার্ট হাইলাইট ---
 function handleSmartHighlight(e) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.toString().trim() === "") return;
