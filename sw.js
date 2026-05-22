@@ -1,10 +1,10 @@
-// SentVoc Offline Engine v5.0
-const CACHE_NAME = 'sentvoc-cache-v5';
+// SentVoc Advanced Offline Engine v4.9.1
+const CACHE_NAME = 'sentvoc-cache-v4.9.1';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css'
+  'https://cdn.tailwindcss.com' // এটি এখন নেটওয়ার্ক ফার্স্ট মেথডে অফলাইনে ক্যাশ হবে
 ];
 
 self.addEventListener('install', (e) => {
@@ -29,23 +29,30 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// নেটওয়ার্ক ফার্স্ট এবং ক্যাশ ফলব্যাক স্ট্র্যাটেজি (ডিজাইন ও অফলাইন সেফটি নিশ্চিত করার জন্য)
 self.addEventListener('fetch', (e) => {
-  // গুগল অনুবাদ নেটওয়ার্ক ছাড়া চলবে না, তাই এটি ক্যাশ এড়াবে
   if (e.request.url.includes('translate.googleapis.com')) {
-    return;
+    return; // অনলাইন ডিকশনারি রিকোয়েস্ট স্কিপ করা হলো
   }
   
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(e.request).catch(() => {
-        // যদি অফলাইনে পেজ পুরোপুরি লোড না হয়, তবে ইন্ডেক্স ফাইল ফিরিয়ে দেবে
-        if (e.request.mode === 'navigate') {
-          return caches.match('./index.html');
+    fetch(e.request)
+      .then((response) => {
+        // নেটওয়ার্ক ঠিক থাকলে ফাইলটি ক্যাশে আপডেট করে নেবে
+        if (response.status === 200) {
+          const cacheCopy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
         }
-      });
-    })
+        return response;
+      })
+      .catch(() => {
+        // ইন্টারনেট অফ থাকলে সরাসরি ক্যাশ মেমোরি থেকে সুন্দর ডিজাইন ফাইলটি রান করবে
+        return caches.match(e.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (e.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
   );
 });
