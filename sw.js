@@ -1,13 +1,12 @@
-// SentVoc Service Worker - v4.9 Offline Cache
-const CACHE_NAME = 'sentvoc-cache-v1';
+// SentVoc Offline Engine v5.0
+const CACHE_NAME = 'sentvoc-cache-v5';
 const ASSETS = [
   './',
-  './index.html', // যদি আপনার মূল ফাইলের নাম অন্য কিছু হয়, তবে এখানে সেটি লিখবেন
+  './index.html',
   './manifest.json',
-  'https://cdn.tailwindcss.com'
+  'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css'
 ];
 
-// ইনস্টল এবং ক্যাশ ফাইল রাইট করা
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -16,7 +15,6 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// পুরনো ক্যাশ ডিলিট করা
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -31,9 +29,8 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// অফলাইন রিকোয়েস্ট হ্যান্ডলিং (Cache First approach)
 self.addEventListener('fetch', (e) => {
-  // গুগল ট্রান্সলেট বা এক্সটার্নাল এপিআই রিকোয়েস্ট ক্যাশ করবে না
+  // গুগল অনুবাদ নেটওয়ার্ক ছাড়া চলবে না, তাই এটি ক্যাশ এড়াবে
   if (e.request.url.includes('translate.googleapis.com')) {
     return;
   }
@@ -43,7 +40,12 @@ self.addEventListener('fetch', (e) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(e.request);
+      return fetch(e.request).catch(() => {
+        // যদি অফলাইনে পেজ পুরোপুরি লোড না হয়, তবে ইন্ডেক্স ফাইল ফিরিয়ে দেবে
+        if (e.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
     })
   );
 });
