@@ -1,51 +1,393 @@
-// SentVoc Offline Engine v5.0
-const CACHE_NAME = 'sentvoc-cache-v5';
-const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css'
-];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentVoc v4.9.1</title>
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
-  );
-});
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#4f46e5">
+    <link class="app-icon" rel="apple-touch-icon" href="icon.png">
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        .rtl-auto { unicode-bidi: plaintext; text-align: start; }
+        #note-input:empty:before { content: attr(placeholder); color: #94a3b8; }
+        .vocab-word { cursor: pointer; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 font-sans min-h-screen text-slate-800 dark:text-slate-200 transition-colors duration-300 relative">
 
-self.addEventListener('fetch', (e) => {
-  // গুগল অনুবাদ নেটওয়ার্ক ছাড়া চলবে না, তাই এটি ক্যাশ এড়াবে
-  if (e.request.url.includes('translate.googleapis.com')) {
-    return;
-  }
-  
-  e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(e.request).catch(() => {
-        // যদি অফলাইনে পেজ পুরোপুরি লোড না হয়, তবে ইন্ডেক্স ফাইল ফিরিয়ে দেবে
-        if (e.request.mode === 'navigate') {
-          return caches.match('./index.html');
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-5 py-3 rounded-full shadow-2xl backdrop-blur-sm z-[100] opacity-0 pointer-events-none transition-all duration-300 transform -translate-y-2">
+        Copied to clipboard! ✓
+    </div>
+
+    <div id="app" class="max-w-md mx-auto p-4 pb-10">
+        <header class="flex justify-between items-center py-6">
+            <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
+                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v4.9.1</span>
+            </h1>
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <button onclick="showSection('learned')" class="text-sm font-bold text-slate-500">Learned</button>
+                <button onclick="toggleSettings()" class="text-xl p-2 active:scale-90 transition-transform">⚙️</button>
+            </div>
+        </header>
+
+        <div id="input-view" class="space-y-4">
+            <div class="relative">
+                <button id="bold-tool" onclick="makeBold()" class="hidden absolute -top-12 left-0 bg-indigo-600 text-white text-xs px-4 py-2 rounded-full shadow-lg z-25 font-bold active:scale-95 transition-transform">
+                    ✨ Highlight Word
+                </button>
+                <div id="note-input" contenteditable="true" class="w-full p-6 min-h-[220px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-sm outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all text-xl leading-relaxed overflow-y-auto rtl-auto" placeholder="Paste or type text here..."></div>
+            </div>
+            <button onclick="saveNote()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">Save Card</button>
+            
+            <div class="pt-6 grid grid-cols-3 gap-3">
+                <button onclick="startRepeat('today')" class="bg-white dark:bg-slate-900 py-4 text-xs rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 font-bold active:bg-indigo-50">Today</button>
+                <button onclick="startRepeat('week')" class="bg-white dark:bg-slate-900 py-4 text-xs rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 font-bold active:bg-indigo-50">Week</button>
+                <button onclick="startRepeat('all')" class="bg-white dark:bg-slate-900 py-4 text-xs rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 font-bold active:bg-indigo-50">All</button>
+            </div>
+        </div>
+
+        <div id="repeat-view" class="hidden">
+            <div class="flex justify-between items-center mb-6 px-2">
+                <div id="card-progress" class="text-slate-400 font-bold text-xs">0 / 0</div>
+                <button onclick="deleteCurrentCard()" class="text-red-400 font-bold text-[10px] uppercase">🗑 Delete</button>
+            </div>
+            
+            <div id="flashcard" onclick="flipCard()" class="h-96 w-full bg-white dark:bg-slate-900 rounded-[2.5rem] flex flex-col items-center justify-center p-8 cursor-pointer shadow-2xl relative border border-slate-100 dark:border-slate-800 overflow-hidden active:scale-[0.98] transition-transform">
+                <button onclick="speakText(event)" class="absolute top-6 right-8 text-2xl text-slate-300 hover:text-indigo-500 transition-colors z-10 p-2">🔊</button>
+                
+                <button onclick="copyCardContent(event)" class="absolute top-6 left-8 text-xl text-slate-300 hover:text-indigo-500 active:scale-90 transition-all z-10 p-2" title="Copy Content">📋</button>
+                
+                <div id="card-content" class="text-center leading-relaxed w-full rtl-auto"></div>
+                <div class="absolute bottom-6 text-slate-300 dark:text-slate-600 text-[9px] font-black uppercase tracking-[0.3em]">Tap to flip</div>
+            </div>
+
+            <div class="mt-8 space-y-6">
+                <div class="flex justify-between items-center px-2">
+                    <button onclick="prevCard()" id="prev-btn" class="text-indigo-600 font-bold text-sm disabled:opacity-30">← Previous</button>
+                    <button id="next-btn" onclick="nextCard()" class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg">Next →</button>
+                </div>
+                <div class="flex justify-center pt-2">
+                    <button id="mastered-btn" onclick="markAsLearned()" class="text-emerald-500 font-bold text-xs uppercase tracking-widest border-b border-emerald-200 dark:border-emerald-900 pb-0.5">✓ Mastered</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="learned-view" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Mastered Words</h2>
+                <button onclick="showSection('input')" class="text-indigo-600 font-bold text-sm">Home</button>
+            </div>
+            <button onclick="startRepeat('mastered')" class="w-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 py-4 rounded-2xl font-bold mb-6 border border-indigo-100 dark:border-indigo-800/50 shadow-sm active:scale-95 transition-all">🔄 Review Mastered Cards</button>
+            <div id="learned-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-6 backdrop-blur-sm z-[60]">
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-[2rem] w-full max-w-xs shadow-2xl border border-slate-200 dark:border-slate-800">
+            <h2 class="font-bold text-xl mb-6 text-center text-indigo-600">Settings</h2>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-bold text-slate-400 ml-2">Lang: Learn / Target</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="learn-lang" class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm border-none outline-none"></select>
+                        <select id="target-lang" class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm border-none outline-none"></select>
+                    </div>
+                </div>
+                <hr class="border-slate-100 dark:border-slate-800">
+                <button onclick="exportData()" class="w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-xl text-sm font-bold">📤 Export Backup</button>
+                <label class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 py-3 rounded-xl text-sm font-bold text-center block cursor-pointer">
+                    📥 Import Backup
+                    <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+                </label>
+            </div>
+            <button onclick="toggleSettings()" class="mt-8 w-full py-3 text-slate-500 font-bold text-sm border-t border-slate-100 dark:border-slate-800">Close Settings</button>
+        </div>
+    </div>
+
+    <div id="dict-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-6 backdrop-blur-sm z-[70]">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-[2rem] w-full max-w-xs shadow-2xl">
+            <div class="mb-6">
+                <h3 id="dict-word" class="text-xl font-black text-indigo-600 mb-2 uppercase"></h3>
+                <p id="dict-meaning" class="text-slate-700 dark:text-slate-300 text-lg leading-relaxed"></p>
+            </div>
+            <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <p class="text-[10px] uppercase font-bold text-slate-400 mb-2">Sentence Meaning</p>
+                <p id="sentence-meaning" class="text-slate-500 dark:text-slate-400 text-sm italic leading-relaxed"></p>
+            </div>
+            <button onclick="closeModal()" class="mt-8 w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-xl font-bold">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const languages = { "en": "English", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German", "hi": "Hindi", "tr": "Turkish", "ru": "Russian", "fa": "Persian" };
+
+        let notes = JSON.parse(localStorage.getItem('sentvoc_notes')) || {};
+        let learnedWords = JSON.parse(localStorage.getItem('sentvoc_learned')) || [];
+        let currentSessionCards = [];
+        let currentIndex = 0;
+        let isFlipped = false;
+
+        window.onload = () => {
+            applyTheme();
+            setupLanguages();
+            showSection('input');
+        };
+
+        // --- আইফোনের গ্লোবাল সিলেকশন ফিক্সড লজিক (v4.9) ---
+        document.addEventListener('selectionchange', () => {
+            const sel = window.getSelection();
+            const tool = document.getElementById('bold-tool');
+            const inputField = document.getElementById('note-input');
+            
+            if (sel && sel.toString().trim().length > 0 && inputField.contains(sel.anchorNode)) {
+                tool.classList.remove('hidden');
+            } else {
+                setTimeout(() => {
+                    if (window.getSelection().toString().trim().length === 0) {
+                        tool.classList.add('hidden');
+                    }
+                }, 200);
+            }
+        });
+
+        function makeBold() {
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline decoration-2 underline-offset-4";
+            span.innerText = sel.toString().trim();
+            range.deleteContents();
+            range.insertNode(span);
+            document.getElementById('bold-tool').classList.add('hidden');
+            window.getSelection().removeAllRanges();
         }
-      });
-    })
-  );
-});
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        async function lookup(word) {
+            if (window.event) window.event.stopPropagation();
+            document.getElementById('dict-modal').classList.replace('hidden', 'flex');
+            
+            document.getElementById('dict-word').innerText = word;
+            document.getElementById('dict-meaning').innerText = "Translating...";
+            document.getElementById('sentence-meaning').innerText = "...";
+
+            const sl = document.getElementById('learn-lang').value;
+            const tl = document.getElementById('target-lang').value;
+            const card = currentSessionCards[currentIndex];
+
+            try {
+                const wRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(word)}`);
+                const wData = await wRes.json();
+                document.getElementById('dict-meaning').innerText = wData[0][0][0];
+
+                if(card && card.sentence) {
+                    const sRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(card.sentence)}`);
+                    const sData = await sRes.json();
+                    document.getElementById('sentence-meaning').innerText = sData[0][0][0];
+                }
+            } catch (e) {
+                document.getElementById('dict-meaning').innerText = "Offline Mode (No Translation)";
+            }
+        }
+
+        function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
+
+        function showCard() {
+            const card = currentSessionCards[currentIndex];
+            const content = document.getElementById('card-content');
+            document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
+            
+            if (isFlipped) {
+                content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2";
+                const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
+                    const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
+                    if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
+                    return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
+                }).join(" ");
+            } else {
+                content.innerText = card.word;
+                content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center";
+            }
+        }
+
+        function copyCardContent(event) {
+            event.stopPropagation(); 
+            const card = currentSessionCards[currentIndex];
+            if (!card) return;
+            
+            const textToCopy = isFlipped ? card.sentence : card.word;
+            
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showToast();
+            }).catch(() => {
+                const el = document.createElement('textarea');
+                el.value = textToCopy;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                showToast();
+            });
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-2');
+            }, 2000);
+        }
+
+        // --- আপনার আইফোনে সচল থাকা অরিজিনাল স্পীচ লজিক (সম্পূর্ণ অপরিবর্তিত) ---
+        function speakText(event) {
+            event.stopPropagation();
+            const ut = new SpeechSynthesisUtterance(isFlipped ? currentSessionCards[currentIndex].sentence : currentSessionCards[currentIndex].word);
+            ut.lang = document.getElementById('learn-lang').value;
+            window.speechSynthesis.speak(ut);
+        }
+
+        function saveNote() {
+            const input = document.getElementById('note-input');
+            const words = input.querySelectorAll('.vocab-word');
+            if (words.length === 0) return alert("Highlight a word first!");
+            const date = new Date().toLocaleDateString();
+            if (!notes[date]) notes[date] = [];
+            words.forEach(w => {
+                notes[date].push({ word: w.innerText.trim(), sentence: input.innerText.trim(), id: Date.now() + Math.random(), timestamp: Date.now() });
+            });
+            localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
+            input.innerHTML = ""; alert("Saved!");
+        }
+
+        function showSection(s) {
+            document.getElementById('input-view').classList.add('hidden');
+            document.getElementById('repeat-view').classList.add('hidden');
+            document.getElementById('learned-view').classList.add('hidden');
+            document.getElementById(s + '-view').classList.remove('hidden');
+            if(s === 'learned') renderLearnedList();
+        }
+
+        function flipCard() { isFlipped = !isFlipped; showCard(); }
+        function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { alert("Done!"); showSection('input'); } }
+        function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
+
+        function markAsLearned() {
+            learnedWords.push(currentSessionCards[currentIndex]);
+            localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
+            currentSessionCards.splice(currentIndex, 1);
+            if (currentSessionCards.length === 0) showSection('input');
+            else { if(currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard(); }
+        }
+
+        function renderLearnedList() {
+            const list = document.getElementById('learned-list');
+            list.innerHTML = learnedWords.map(lw => `
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm border-l-4 border-green-500 mb-3">
+                    <p class="font-black text-indigo-600 dark:text-indigo-400 uppercase text-lg">${lw.word}</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${lw.sentence}</p>
+                </div>
+            `).join('');
+        }
+
+        function startRepeat(mode) {
+            currentSessionCards = [];
+            const allNotes = Object.values(notes).flat();
+            if (mode === 'mastered') {
+                currentSessionCards = [...learnedWords];
+            } else {
+                allNotes.forEach(c => {
+                    if(learnedWords.some(l => l.id === c.id)) return;
+                    const age = Date.now() - c.timestamp;
+                    if (mode === 'today' && age <= 86400000) currentSessionCards.push(c);
+                    else if (mode === 'week' && age <= 604800000) currentSessionCards.push(c);
+                    else if (mode === 'all') currentSessionCards.push(c);
+                });
+            }
+            if (currentSessionCards.length === 0) return alert("No cards!");
+            currentSessionCards.sort(() => Math.random() - 0.5);
+            currentIndex = 0; isFlipped = false;
+            document.getElementById('mastered-btn').style.display = (mode === 'mastered') ? 'none' : 'block';
+            showCard(); showSection('repeat');
+        }
+
+        function setupLanguages() {
+            const lSel = document.getElementById('learn-lang'), tSel = document.getElementById('target-lang');
+            Object.entries(languages).forEach(([c, n]) => {
+                lSel.add(new Option(n, c)); tSel.add(new Option(n, c));
+            });
+            lSel.value = localStorage.getItem('pref_learn') || "ur";
+            tSel.value = localStorage.getItem('pref_target') || "bn";
+            lSel.onchange = () => localStorage.setItem('pref_learn', lSel.value);
+            tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+        }
+
+        function applyTheme() {
+            const isDark = localStorage.getItem('theme') === 'dark';
+            document.documentElement.classList.toggle('dark', isDark);
+            document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+        }
+
+        function exportData() {
+            const data = JSON.stringify({notes, learnedWords});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
+            a.download = `SentVoc_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        }
+
+        function importData(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const data = JSON.parse(ev.target.result);
+                localStorage.setItem('sentvoc_notes', JSON.stringify(data.notes));
+                localStorage.setItem('sentvoc_learned', JSON.stringify(data.learnedWords));
+                location.reload();
+            };
+            reader.readAsText(e.target.files[0]);
+        }
+
+        function deleteCurrentCard() {
+            if(!confirm("Delete?")) return;
+            const id = currentSessionCards[currentIndex].id;
+            for(let d in notes) notes[d] = notes[d].filter(n => n.id !== id);
+            localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
+            currentSessionCards.splice(currentIndex, 1);
+            if (currentSessionCards.length === 0) showSection('input');
+            else { if(currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard(); }
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
