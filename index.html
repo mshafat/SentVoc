@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v4.8</title>
+    <title>SentVoc v4.9</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -30,7 +30,7 @@
     <div id="app" class="max-w-md mx-auto p-4 pb-10">
         <header class="flex justify-between items-center py-6">
             <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v4.8</span>
+                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v4.9</span>
             </h1>
             <div class="flex items-center space-x-4">
                 <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -43,10 +43,10 @@
 
         <div id="input-view" class="space-y-4">
             <div class="relative">
-                <button id="bold-tool" onclick="makeBold()" class="hidden absolute -top-12 left-0 bg-indigo-600 text-white text-xs px-4 py-2 rounded-full shadow-lg z-20 font-bold active:scale-95 transition-transform">
+                <button id="bold-tool" onclick="makeBold()" class="hidden absolute -top-12 left-0 bg-indigo-600 text-white text-xs px-4 py-2 rounded-full shadow-lg z-25 font-bold active:scale-95 transition-transform">
                     ✨ Highlight Word
                 </button>
-                <div id="note-input" contenteditable="true" onselect="handleSelection()" onmouseup="handleSelection()" ontouchend="setTimeout(handleSelection, 200)" class="w-full p-6 min-h-[220px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-sm outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all text-xl leading-relaxed overflow-y-auto rtl-auto" placeholder="Paste or type text here..."></div>
+                <div id="note-input" contenteditable="true" class="w-full p-6 min-h-[220px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-sm outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all text-xl leading-relaxed overflow-y-auto rtl-auto" placeholder="Paste or type text here..."></div>
             </div>
             <button onclick="saveNote()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">Save Card</button>
             
@@ -144,6 +144,38 @@
             showSection('input');
         };
 
+        // --- আইফোনের জন্য গ্লোবাল মোবাইল সিলেকশন ফিক্সড লজিক ---
+        document.addEventListener('selectionchange', () => {
+            const sel = window.getSelection();
+            const tool = document.getElementById('bold-tool');
+            const inputField = document.getElementById('note-input');
+            
+            // সিলেকশনটি ইনপুট ফিল্ডের ভেতরে আছে কিনা এবং ফাঁকা নয় কিনা তা যাচাই করা
+            if (sel && sel.toString().trim().length > 0 && inputField.contains(sel.anchorNode)) {
+                tool.classList.remove('hidden');
+            } else {
+                // সামান্য ডিলে দেওয়া হয়েছে যেন বাটনে ক্লিক করার আগেই এটি হারিয়ে না যায়
+                setTimeout(() => {
+                    if (window.getSelection().toString().trim().length === 0) {
+                        tool.classList.add('hidden');
+                    }
+                }, 200);
+            }
+        });
+
+        function makeBold() {
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline decoration-2 underline-offset-4";
+            span.innerText = sel.toString().trim();
+            range.deleteContents();
+            range.insertNode(span);
+            document.getElementById('bold-tool').classList.add('hidden');
+            window.getSelection().removeAllRanges();
+        }
+
         function toggleSettings() {
             const modal = document.getElementById('settings-modal');
             modal.classList.toggle('hidden');
@@ -198,31 +230,6 @@
             }
         }
 
-        // --- মোবাইল ও কম্পিউটারের জন্য ফিক্সড হাইলাইট সিলেকশন ---
-        function handleSelection() {
-            const sel = window.getSelection();
-            const tool = document.getElementById('bold-tool');
-            if (sel && sel.toString().trim().length > 0) {
-                tool.classList.remove('hidden');
-            } else {
-                tool.classList.add('hidden');
-            }
-        }
-
-        function makeBold() {
-            const sel = window.getSelection();
-            if (!sel || !sel.rangeCount) return;
-            const range = sel.getRangeAt(0);
-            const span = document.createElement('span');
-            span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline decoration-2 underline-offset-4";
-            span.innerText = sel.toString().trim();
-            range.deleteContents();
-            range.insertNode(span);
-            document.getElementById('bold-tool').classList.add('hidden');
-            window.getSelection().removeAllRanges();
-        }
-
-        // --- আধুনিক পুশ নোটিফিকেশন সহ সেফ কপি মেথড ---
         function copyCardContent(event) {
             event.stopPropagation(); 
             const card = currentSessionCards[currentIndex];
@@ -251,7 +258,7 @@
             setTimeout(() => {
                 toast.classList.remove('opacity-100', 'translate-y-0');
                 toast.classList.add('opacity-0', '-translate-y-2');
-            }, 2000); // ২ সেকেন্ড পর নিজে থেকেই চলে যাবে
+            }, 2000);
         }
 
         // --- আপনার আইফোনে সচল থাকা অরিজিনাল স্পীচ লজিক (সম্পূর্ণ অপরিবর্তিত) ---
@@ -262,7 +269,6 @@
             window.speechSynthesis.speak(ut);
         }
 
-        // --- বাকি অন্যান্য ফাংশন ---
         function saveNote() {
             const input = document.getElementById('note-input');
             const words = input.querySelectorAll('.vocab-word');
@@ -377,6 +383,13 @@
             currentSessionCards.splice(currentIndex, 1);
             if (currentSessionCards.length === 0) showSection('input');
             else { if(currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard(); }
+        }
+
+        // --- সার্ভিস ওয়ার্কার রেজিস্ট্রেশন (অফলাইন সাপোর্ট) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+            });
         }
     </script>
 </body>
