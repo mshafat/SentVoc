@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v5.2</title>
+    <title>SentVoc v5.3</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -50,7 +50,7 @@
     <div id="app" class="max-w-md mx-auto p-4 pb-10">
         <header class="flex justify-between items-center py-6">
             <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.2</span>
+                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.3</span>
             </h1>
             <div class="flex items-center space-x-4">
                 <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -80,7 +80,7 @@
         <div id="repeat-view" class="hidden">
             <div class="flex justify-between items-center mb-6 px-2">
                 <div id="card-progress" class="text-slate-400 font-bold text-xs">0 / 0</div>
-                <button onclick="deleteCurrentCard()" class="text-red-400 font-bold text-[10px] uppercase">🗑 Delete</button>
+                <button onclick="deleteCurrentCard()" class="text-red-400 font-bold text-[10px] uppercase tracking-wider">🗑 Delete</button>
             </div>
             
             <div id="flashcard" onclick="flipCard()" class="h-96 w-full bg-white dark:bg-slate-900 rounded-[2.5rem] flex flex-col items-center justify-center p-8 cursor-pointer shadow-2xl relative border border-slate-100 dark:border-slate-800 overflow-hidden active:scale-[0.98] transition-transform">
@@ -98,6 +98,7 @@
                 </div>
                 <div class="flex justify-center pt-2">
                     <button id="mastered-btn" onclick="markAsLearned()" class="text-emerald-500 font-bold text-xs uppercase tracking-widest border-b border-emerald-200 dark:border-emerald-900 pb-0.5">✓ Mastered</button>
+                    <button id="relearn-btn" onclick="processRelearn()" class="hidden text-red-500 font-bold text-xs uppercase tracking-widest border-b border-red-200 dark:border-red-900 pb-0.5">↺ Relearn</button>
                 </div>
             </div>
         </div>
@@ -157,6 +158,7 @@
         let currentIndex = 0;
         let isFlipped = false;
         let confirmCallback = null;
+        let currentSessionMode = 'normal'; // সেশন ট্র্যাকার ট্রিপ
 
         window.onload = () => {
             applyTheme();
@@ -167,22 +169,25 @@
         function showCustomAlert(msg, icon = "✨") {
             document.getElementById('custom-alert-icon').innerText = icon;
             document.getElementById('custom-alert-message').innerText = msg;
-            const modal = document.getElementById('custom-alert-modal');
-            modal.classList.replace('hidden', 'flex');
+            document.getElementById('custom-alert-modal').classList.replace('hidden', 'flex');
         }
         
         function closeCustomAlert() {
             document.getElementById('custom-alert-modal').classList.replace('flex', 'hidden');
         }
 
+        // --- কাস্টম কনফার্মেশন গ্লোবাল বাটন ফিক্স ---
         function showCustomConfirm(callback) {
             confirmCallback = callback;
-            document.getElementById('custom-confirm-modal').classList.replace('flex', 'hidden');
+            document.getElementById('custom-confirm-modal').classList.replace('hidden', 'flex');
         }
         
         function closeCustomConfirm(result) {
             document.getElementById('custom-confirm-modal').classList.replace('flex', 'hidden');
-            if (confirmCallback) confirmCallback(result);
+            if (confirmCallback) {
+                confirmCallback(result);
+                confirmCallback = null; // মেমোরি ক্লিয়ার করা হলো
+            }
         }
 
         // --- আইফোনের গ্লোবাল সিলেকশন লজিক ---
@@ -208,7 +213,7 @@
             const range = sel.getRangeAt(0);
             const span = document.createElement('span');
             span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline decoration-2 underline-offset-4";
-            span.innerText = sel.toString(); // স্পেস ট্রিম করা যাবে না যাতে উর্দুর ম্যাচিং নষ্ট না হয়
+            span.innerText = sel.toString();
             range.deleteContents();
             range.insertNode(span);
             document.getElementById('bold-tool').classList.add('hidden');
@@ -250,7 +255,6 @@
 
         function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
 
-        // --- উর্দুর জন্য বিশেষ ইউনিভার্সাল কার্ড প্রসেসিং ইঞ্জিন ---
         function showCard() {
             const card = currentSessionCards[currentIndex];
             const content = document.getElementById('card-content');
@@ -258,15 +262,9 @@
             
             if (isFlipped) {
                 content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2 rtl-auto";
-                
-                // নিরাপদ প্লেসবোল্ডার ব্যবহার করে RTL টেক্সট ব্রেকিং ফিক্স
                 const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const targetWord = card.word.trim();
-                
-                // গ্লোবাল এবং কেইস-ইনসেনসিটিভ রিপ্লেসমেন্ট লজিক
                 const regex = new RegExp(`(${escapeRegExp(targetWord)})`, 'gi');
-                
-                // জটিল রেন্ডারিং ট্যাগ সিস্টেমকে বাইপাস করে সরাসরি সেফ মার্কিং ইনজেকশন
                 let markedSentence = card.sentence.replace(regex, "|||MARK|||$1|||END|||");
                 
                 content.innerHTML = markedSentence.split(/\s+/).map(p => {
@@ -343,15 +341,55 @@
         }
 
         function flipCard() { isFlipped = !isFlipped; showCard(); }
-        function nextCard() { if (currentIndex < currentSessionCards.length - 1) { currentIndex++; isFlipped = false; showCard(); } else { showCustomAlert("Congratulations! You've reviewed all cards.", "🏁"); showSection('input'); } }
+        
+        function nextCard() { 
+            if (currentIndex < currentSessionCards.length - 1) { 
+                currentIndex++; 
+                isFlipped = false; 
+                showCard(); 
+            } else { 
+                showCustomAlert("Congratulations! You've reviewed all cards in this session.", "🏁"); 
+                showSection('input'); 
+            } 
+        }
+        
         function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; showCard(); } }
 
         function markAsLearned() {
             learnedWords.push(currentSessionCards[currentIndex]);
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
             currentSessionCards.splice(currentIndex, 1);
-            if (currentSessionCards.length === 0) showSection('input');
-            else { if(currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard(); }
+            if (currentSessionCards.length === 0) {
+                showCustomAlert("Great Job! All cards are Mastered.", "🏆");
+                showSection('input');
+            } else { 
+                if(currentIndex >= currentSessionCards.length) currentIndex--; 
+                isFlipped = false; 
+                showCard(); 
+            }
+        }
+
+        // --- নতুন রিলার্ন লজিক (মাস্টার্ড টু একটিভ ট্র্যাকার) ---
+        function processRelearn() {
+            const cardToMove = currentSessionCards[currentIndex];
+            
+            // ১. মাস্টার্ড লিস্ট থেকে রিমুভ করা হলো
+            learnedWords = learnedWords.filter(l => l.id !== cardToMove.id);
+            localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
+            
+            // ২. সেশন লিস্ট থেকে রিমুভ করে পরবর্তী কার্ডে মুভ করা হলো
+            currentSessionCards.splice(currentIndex, 1);
+            
+            showToast(); // 'Copied' এর জায়গায় রিলার্ন শিফটিং নোটিফিকেশন চাইলে দিতে পারেন, তবে টোস্ট দিয়ে ফাস্ট রেসপন্স নিশ্চিত করা হলো
+            
+            if (currentSessionCards.length === 0) {
+                showCustomAlert("All mastered cards reviewed!", "🏁");
+                showSection('input');
+            } else {
+                if (currentIndex >= currentSessionCards.length) currentIndex--;
+                isFlipped = false;
+                showCard();
+            }
         }
 
         function renderLearnedList() {
@@ -366,9 +404,13 @@
 
         function startRepeat(mode) {
             currentSessionCards = [];
+            currentSessionMode = mode;
             const allNotes = Object.values(notes).flat();
+            
             if (mode === 'mastered') {
                 currentSessionCards = [...learnedWords];
+                document.getElementById('mastered-btn').classList.add('hidden');
+                document.getElementById('relearn-btn').classList.remove('hidden');
             } else {
                 allNotes.forEach(c => {
                     if(learnedWords.some(l => l.id === c.id)) return;
@@ -377,11 +419,13 @@
                     else if (mode === 'week' && age <= 604800000) currentSessionCards.push(c);
                     else if (mode === 'all') currentSessionCards.push(c);
                 });
+                document.getElementById('mastered-btn').classList.remove('hidden');
+                document.getElementById('relearn-btn').classList.add('hidden');
             }
+            
             if (currentSessionCards.length === 0) return showCustomAlert("No cards available for review!", "📚");
             currentSessionCards.sort(() => Math.random() - 0.5);
             currentIndex = 0; isFlipped = false;
-            document.getElementById('mastered-btn').style.display = (mode === 'mastered') ? 'none' : 'block';
             showCard(); showSection('repeat');
         }
 
@@ -427,15 +471,37 @@
             reader.readAsText(e.target.files[0]);
         }
 
+        // --- সম্পূর্ণ ফিক্সড ডিলিট বাটন মেকানিজম ---
         function deleteCurrentCard() {
             showCustomConfirm((confirmed) => {
-                if (!confirmed) return;
-                const id = currentSessionCards[currentIndex].id;
-                for(let d in notes) notes[d] = notes[d].filter(n => n.id !== id);
+                if (!confirmed) return; // ইউজার ক্যানসেল করলে ব্যাক করবে
+                
+                const currentCard = currentSessionCards[currentIndex];
+                if (!currentCard) return;
+
+                const id = currentCard.id;
+
+                // ১. মূল নোটস অবজেক্ট থেকে ডিলিট
+                for (let d in notes) {
+                    notes[d] = notes[d].filter(n => n.id !== id);
+                }
                 localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
+
+                // ২. মাস্টার্ড লিস্টে থাকলে সেখান থেকেও ডিলিট
+                learnedWords = learnedWords.filter(l => l.id !== id);
+                localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
+
+                // ৩. বর্তমান রানিং সেশন থেকে ইনস্ট্যান্ট হাওয়া
                 currentSessionCards.splice(currentIndex, 1);
-                if (currentSessionCards.length === 0) showSection('input');
-                else { if(currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard(); }
+
+                // ৪. স্ক্রিন ও ইনডেক্স রিফ্রেশ লজিক
+                if (currentSessionCards.length === 0) {
+                    showSection('input');
+                } else {
+                    if (currentIndex >= currentSessionCards.length) currentIndex--;
+                    isFlipped = false;
+                    showCard();
+                }
             });
         }
 
