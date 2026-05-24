@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v5.1</title>
+    <title>SentVoc v5.2</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -50,7 +50,7 @@
     <div id="app" class="max-w-md mx-auto p-4 pb-10">
         <header class="flex justify-between items-center py-6">
             <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.1</span>
+                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.2</span>
             </h1>
             <div class="flex items-center space-x-4">
                 <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -87,7 +87,7 @@
                 <button onclick="speakText(event)" class="absolute top-6 right-8 text-2xl text-slate-300 hover:text-indigo-500 transition-colors z-10 p-2">🔊</button>
                 <button onclick="copyCardContent(event)" class="absolute top-6 left-8 text-xl text-slate-300 hover:text-indigo-500 active:scale-90 transition-all z-10 p-2" title="Copy Content">📋</button>
                 
-                <div id="card-content" class="text-center leading-relaxed w-full rtl-auto"></div>
+                <div id="card-content" class="text-center leading-relaxed w-full rtl-auto text-2xl"></div>
                 <div class="absolute bottom-6 text-slate-300 dark:text-slate-600 text-[9px] font-black uppercase tracking-[0.3em]">Tap to flip</div>
             </div>
 
@@ -164,22 +164,22 @@
             showSection('input');
         };
 
-        // --- নতুন কাস্টম ইউজার-ফ্রেন্ডলি অ্যালার্ট সিস্টেম (কোনো URL দেখাবে না) ---
         function showCustomAlert(msg, icon = "✨") {
             document.getElementById('custom-alert-icon').innerText = icon;
             document.getElementById('custom-alert-message').innerText = msg;
             const modal = document.getElementById('custom-alert-modal');
             modal.classList.replace('hidden', 'flex');
         }
+        
         function closeCustomAlert() {
             document.getElementById('custom-alert-modal').classList.replace('flex', 'hidden');
         }
 
-        // --- নতুন কাস্টম কনফার্ম সিস্টেম ---
         function showCustomConfirm(callback) {
             confirmCallback = callback;
-            document.getElementById('custom-confirm-modal').classList.replace('hidden', 'flex');
+            document.getElementById('custom-confirm-modal').classList.replace('flex', 'hidden');
         }
+        
         function closeCustomConfirm(result) {
             document.getElementById('custom-confirm-modal').classList.replace('flex', 'hidden');
             if (confirmCallback) confirmCallback(result);
@@ -208,7 +208,7 @@
             const range = sel.getRangeAt(0);
             const span = document.createElement('span');
             span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline decoration-2 underline-offset-4";
-            span.innerText = sel.toString().trim();
+            span.innerText = sel.toString(); // স্পেস ট্রিম করা যাবে না যাতে উর্দুর ম্যাচিং নষ্ট না হয়
             range.deleteContents();
             range.insertNode(span);
             document.getElementById('bold-tool').classList.add('hidden');
@@ -250,22 +250,35 @@
 
         function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
 
+        // --- উর্দুর জন্য বিশেষ ইউনিভার্সাল কার্ড প্রসেসিং ইঞ্জিন ---
         function showCard() {
             const card = currentSessionCards[currentIndex];
             const content = document.getElementById('card-content');
             document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
             
             if (isFlipped) {
-                content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2";
-                const regex = new RegExp(`(${card.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                content.innerHTML = card.sentence.replace(regex, "___MARK___$1___END___").split(/\s+/).map(p => {
-                    const clean = p.replace("___MARK___", "").replace("___END___", "").replace(/[.,!?।]/g, "");
-                    if (p.includes("___MARK___")) return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("___MARK___", "").replace("___END___", "")}</mark>`;
+                content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2 rtl-auto";
+                
+                // নিরাপদ প্লেসবোল্ডার ব্যবহার করে RTL টেক্সট ব্রেকিং ফিক্স
+                const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const targetWord = card.word.trim();
+                
+                // গ্লোবাল এবং কেইস-ইনসেনসিটিভ রিপ্লেসমেন্ট লজিক
+                const regex = new RegExp(`(${escapeRegExp(targetWord)})`, 'gi');
+                
+                // জটিল রেন্ডারিং ট্যাগ সিস্টেমকে বাইপাস করে সরাসরি সেফ মার্কিং ইনজেকশন
+                let markedSentence = card.sentence.replace(regex, "|||MARK|||$1|||END|||");
+                
+                content.innerHTML = markedSentence.split(/\s+/).map(p => {
+                    let clean = p.replace("|||MARK|||", "").replace("|||END|||", "").replace(/[.,!?।]/g, "");
+                    if (p.includes("|||MARK|||")) {
+                        return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("|||MARK|||", "").replace("|||END|||", "")}</mark>`;
+                    }
                     return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
                 }).join(" ");
             } else {
                 content.innerText = card.word;
-                content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center";
+                content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center rtl-auto";
             }
         }
 
@@ -344,7 +357,7 @@
         function renderLearnedList() {
             const list = document.getElementById('learned-list');
             list.innerHTML = learnedWords.map(lw => `
-                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm border-l-4 border-green-500 mb-3">
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm border-l-4 border-green-500 mb-3 rtl-auto">
                     <p class="font-black text-indigo-600 dark:text-indigo-400 uppercase text-lg">${lw.word}</p>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${lw.sentence}</p>
                 </div>
@@ -383,7 +396,6 @@
             tSel.onchange = () => localStorage.setItem('pref_target', tSel.value);
         }
 
-        // --- থিম কন্ট্রোল ---
         function toggleTheme() {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
