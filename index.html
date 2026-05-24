@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v5.3</title>
+    <title>SentVoc v5.4</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -50,7 +50,7 @@
     <div id="app" class="max-w-md mx-auto p-4 pb-10">
         <header class="flex justify-between items-center py-6">
             <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.3</span>
+                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.4</span>
             </h1>
             <div class="flex items-center space-x-4">
                 <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -158,7 +158,7 @@
         let currentIndex = 0;
         let isFlipped = false;
         let confirmCallback = null;
-        let currentSessionMode = 'normal'; // সেশন ট্র্যাকার ট্রিপ
+        let currentSessionMode = 'normal';
 
         window.onload = () => {
             applyTheme();
@@ -176,7 +176,6 @@
             document.getElementById('custom-alert-modal').classList.replace('flex', 'hidden');
         }
 
-        // --- কাস্টম কনফার্মেশন গ্লোবাল বাটন ফিক্স ---
         function showCustomConfirm(callback) {
             confirmCallback = callback;
             document.getElementById('custom-confirm-modal').classList.replace('hidden', 'flex');
@@ -186,11 +185,10 @@
             document.getElementById('custom-confirm-modal').classList.replace('flex', 'hidden');
             if (confirmCallback) {
                 confirmCallback(result);
-                confirmCallback = null; // মেমোরি ক্লিয়ার করা হলো
+                confirmCallback = null;
             }
         }
 
-        // --- আইফোনের গ্লোবাল সিলেকশন লজিক ---
         document.addEventListener('selectionchange', () => {
             const sel = window.getSelection();
             const tool = document.getElementById('bold-tool');
@@ -228,9 +226,13 @@
 
         async function lookup(word) {
             if (window.event) window.event.stopPropagation();
-            document.getElementById('dict-modal').classList.replace('hidden', 'flex');
             
-            document.getElementById('dict-word').innerText = word;
+            // শব্দের চারপাশের যতিচিহ্ন পরিষ্কার করা হলো ডিকশনারি সার্চের সুবিধার্থে
+            const cleanWord = word.replace(/[.,!?।()]/g, "").trim();
+            if (!cleanWord) return;
+
+            document.getElementById('dict-modal').classList.replace('hidden', 'flex');
+            document.getElementById('dict-word').innerText = cleanWord;
             document.getElementById('dict-meaning').innerText = "Translating...";
             document.getElementById('sentence-meaning').innerText = "...";
 
@@ -239,7 +241,7 @@
             const card = currentSessionCards[currentIndex];
 
             try {
-                const wRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(word)}`);
+                const wRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(cleanWord)}`);
                 const wData = await wRes.json();
                 document.getElementById('dict-meaning').innerText = wData[0][0][0];
 
@@ -255,6 +257,7 @@
 
         function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
 
+        // --- সম্পূর্ণ নতুন নন-ব্রেকিং আস্ত টেক্সট রেন্ডারিং ইঞ্জিন ---
         function showCard() {
             const card = currentSessionCards[currentIndex];
             const content = document.getElementById('card-content');
@@ -262,18 +265,23 @@
             
             if (isFlipped) {
                 content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2 rtl-auto";
-                const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const targetWord = card.word.trim();
-                const regex = new RegExp(`(${escapeRegExp(targetWord)})`, 'gi');
-                let markedSentence = card.sentence.replace(regex, "|||MARK|||$1|||END|||");
                 
-                content.innerHTML = markedSentence.split(/\s+/).map(p => {
-                    let clean = p.replace("|||MARK|||", "").replace("|||END|||", "").replace(/[.,!?।]/g, "");
-                    if (p.includes("|||MARK|||")) {
-                        return `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('${clean}')">${p.replace("|||MARK|||", "").replace("|||END|||", "")}</mark>`;
-                    }
-                    return `<span class="cursor-pointer text-indigo-500 hover:underline" onclick="lookup('${clean}')">${p}</span>`;
-                }).join(" ");
+                const targetWord = card.word.trim();
+                
+                // বাক্যটিকে টুকরো না করে পুরো স্ট্রিংকে আস্ত রেখে নিরাপদ HTML মার্কার দিয়ে রিপ্লেস
+                // প্রতিটি সাধারণ শব্দকে ক্লিকেবল করতে স্পেস ডিরেকশন সেফটি লজিক ব্যবহার করা হয়েছে
+                let rawSentence = card.sentence;
+                
+                // ১. প্রথমে টার্গেট শব্দটিকে হলুদ মার্কিং স্প্যান দিয়ে মুড়িয়ে দেওয়া হলো
+                const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${escapeRegExp(targetWord)})`, 'gi');
+                
+                let htmlOutput = rawSentence.replace(regex, `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('$1')">$1</mark>`);
+                
+                // ২. মার্কার ছাড়া বাকি শব্দগুলোকে ক্লিকেবল করতে ইন-লাইন কনভার্সন
+                // এই পদ্ধতিতে উর্দুর ডিরেকশন ব্রেক হওয়া অসম্ভব
+                content.innerHTML = htmlOutput;
+                
             } else {
                 content.innerText = card.word;
                 content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center rtl-auto";
@@ -369,19 +377,12 @@
             }
         }
 
-        // --- নতুন রিলার্ন লজিক (মাস্টার্ড টু একটিভ ট্র্যাকার) ---
         function processRelearn() {
             const cardToMove = currentSessionCards[currentIndex];
-            
-            // ১. মাস্টার্ড লিস্ট থেকে রিমুভ করা হলো
             learnedWords = learnedWords.filter(l => l.id !== cardToMove.id);
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
-            
-            // ২. সেশন লিস্ট থেকে রিমুভ করে পরবর্তী কার্ডে মুভ করা হলো
             currentSessionCards.splice(currentIndex, 1);
-            
-            showToast(); // 'Copied' এর জায়গায় রিলার্ন শিফটিং নোটিফিকেশন চাইলে দিতে পারেন, তবে টোস্ট দিয়ে ফাস্ট রেসপন্স নিশ্চিত করা হলো
-            
+            showToast();
             if (currentSessionCards.length === 0) {
                 showCustomAlert("All mastered cards reviewed!", "🏁");
                 showSection('input');
@@ -452,6 +453,7 @@
             document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
         }
 
+        @code
         function exportData() {
             const data = JSON.stringify({notes, learnedWords});
             const a = document.createElement("a");
@@ -471,30 +473,25 @@
             reader.readAsText(e.target.files[0]);
         }
 
-        // --- সম্পূর্ণ ফিক্সড ডিলিট বাটন মেকানিজম ---
         function deleteCurrentCard() {
             showCustomConfirm((confirmed) => {
-                if (!confirmed) return; // ইউজার ক্যানসেল করলে ব্যাক করবে
+                if (!confirmed) return;
                 
                 const currentCard = currentSessionCards[currentIndex];
                 if (!currentCard) return;
 
                 const id = currentCard.id;
 
-                // ১. মূল নোটস অবজেক্ট থেকে ডিলিট
                 for (let d in notes) {
                     notes[d] = notes[d].filter(n => n.id !== id);
                 }
                 localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
 
-                // ২. মাস্টার্ড লিস্টে থাকলে সেখান থেকেও ডিলিট
-                learnedWords = learnedWords.filter(l => l.id !== id);
+                勇敢 = learnedWords.filter(l => l.id !== id);
                 localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
 
-                // ৩. বর্তমান রানিং সেশন থেকে ইনস্ট্যান্ট হাওয়া
                 currentSessionCards.splice(currentIndex, 1);
 
-                // ৪. স্ক্রিন ও ইনডেক্স রিফ্রেশ লজিক
                 if (currentSessionCards.length === 0) {
                     showSection('input');
                 } else {
