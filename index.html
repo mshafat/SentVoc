@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v5.5</title>
+    <title>SentVoc v5.6</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,6 +22,11 @@
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 font-sans min-h-screen text-slate-800 dark:text-slate-200 transition-colors duration-300 relative">
+
+    <div id="backup-reminder-banner" class="hidden bg-gradient-to-r Jacks from-amber-500 to-orange-600 text-white px-4 py-3 text-center shadow-md relative z-50 text-xs font-bold animate-fade-in flex justify-between items-center max-w-md mx-auto rounded-b-2xl">
+        <span class="flex items-center gap-1">⚠️ It's been 7 days since your last backup!</span>
+        <button onclick="triggerOneTapBackup()" class="bg-white text-orange-600 px-3 py-1.5 rounded-xl shadow font-black active:scale-95 transition-transform">Backup Now</button>
+    </div>
 
     <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-5 py-3 rounded-full shadow-2xl backdrop-blur-sm z-[100] opacity-0 pointer-events-none transition-all duration-300 transform -translate-y-2">
         Copied to clipboard! ✓
@@ -50,7 +55,7 @@
     <div id="app" class="max-w-md mx-auto p-4 pb-10">
         <header class="flex justify-between items-center py-6">
             <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.5</span>
+                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.6</span>
             </h1>
             <div class="flex items-center space-x-4">
                 <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -164,7 +169,37 @@
             applyTheme();
             setupLanguages();
             showSection('input');
+            checkBackupStatus(); // অ্যাপ লোড হওয়ার সময় ব্যাকআপ চেক করবে
         };
+
+        // --- স্মার্ট ৭ দিন ব্যাকআপ চেকার ইঞ্জিন (নতুন) ---
+        function checkBackupStatus() {
+            const lastBackup = localStorage.getItem('sentvoc_last_backup');
+            const totalCards = Object.values(notes).flat().length + learnedWords.length;
+            
+            // যদি অ্যাপে কোনো কার্ডই না থাকে, তবে নোটিফিকেশন দেখানোর প্রয়োজন নেই
+            if (totalCards === 0) return;
+
+            if (!lastBackup) {
+                // ফার্স্ট টাইম ইউজার হলে আজকের দিনটিকে প্রথম ব্যাকআপ মার্কার হিসেবে সেট করবে
+                localStorage.setItem('sentvoc_last_backup', Date.now());
+                return;
+            }
+
+            const daysSinceLastBackup = (Date.now() - parseInt(lastBackup)) / (1000 * 60 * 60 * 24);
+            
+            if (daysSinceLastBackup >= 7) {
+                document.getElementById('backup-reminder-banner').classList.remove('hidden');
+            }
+        }
+
+        // --- ওয়ান-ট্যাপ ব্যাকআপ ডাউনলোড ফাংশন (নতুন) ---
+        function triggerOneTapBackup() {
+            exportData(); // ডেটা ডাউনলোড করাবে
+            localStorage.setItem('sentvoc_last_backup', Date.now()); // টাইমস্ট্যাম্প রিসেট করবে
+            document.getElementById('backup-reminder-banner').classList.add('hidden'); // ব্যানার হাইড করবে
+            showCustomAlert("Backup Downloaded & Safe! Reminder reset for next 7 days.", "💾");
+        }
 
         function showCustomAlert(msg, icon = "✨") {
             document.getElementById('custom-alert-icon').innerText = icon;
@@ -450,6 +485,8 @@
             a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
             a.download = `SentVoc_Backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
+            // সাধারণ সেটিং ব্যাকআপ নিলেও যাতে ৭ দিনের নোটিফিকেশন রিসেট হয়ে যায়:
+            localStorage.setItem('sentvoc_last_backup', Date.now());
         }
 
         function importData(e) {
