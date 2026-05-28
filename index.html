@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v5.8</title>
+    <title>SentVoc v5.9</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +12,7 @@
     <link class="app-icon" rel="apple-touch-icon" href="icon.png">
 
     <style>
-        /* ১০০% অফলাইন ফ্রেন্ডলি জিরো-ডিপেন্ডেন্সি কাস্টম সিএসএস */
+        /* জিরো-ডিপেন্ডেন্সি কাস্টম অফলাইন সিএসএস */
         :root {
             --bg-main: #f8fafc; --bg-card: #ffffff; --text-main: #1e293b; --text-muted: #64748b; --primary: #4f46e5; --border: #e2e8f0;
         }
@@ -21,7 +21,6 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s; }
         
-        /* ডেস্কটপ বা ল্যাপটপেও যাতে অ্যাপটি চ্যাপ্টা না হয়ে সবসময় মোবাইল স্ক্রিন সাইজে সেন্টারে থাকে */
         body { 
             background-color: var(--bg-main); 
             color: var(--text-main); 
@@ -35,7 +34,7 @@
         
         .app-container { 
             width: 100%; 
-            max-width: 448px; /* গ্লোবাল মোবাইল ফ্রেম লক */
+            max-width: 448px; 
             margin: 0 auto; 
             padding: 16px; 
             display: flex;
@@ -55,14 +54,12 @@
         .btn-icon { background: var(--bg-card); border: 1px solid var(--border); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .btn-text { font-size: 14px; font-weight: bold; color: var(--text-muted); background: none; border: none; cursor: pointer; }
         
-        /* ইনপুট ফিল্ড ও হাইলাইট বাটন */
         .relative { position: relative; width: 100%; }
         #note-input { width: 100%; padding: 24px; min-height: 220px; max-height: 250px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 40px; font-size: 20px; line-height: 1.6; overflow-y: auto; outline: none; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         #note-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15); }
         #note-input:empty:before { content: attr(placeholder); color: #94a3b8; }
         .vocab-word { cursor: pointer; color: var(--primary); font-weight: 900; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
         
-        /* হাইলাইট বাটন বাই-ডিফল্ট যাতে অ্যাপ চালুর সময় লুকিয়ে থাকে */
         #bold-tool { display: none; position: absolute; top: -48px; left: 16px; background: var(--primary); color: white; font-size: 12px; font-weight: bold; padding: 8px 16px; border-radius: 9999px; border: none; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); cursor: pointer; z-index: 25; }
         
         .btn-primary { width: 100%; background: var(--primary); color: white; padding: 16px; border-radius: 16px; font-weight: bold; border: none; font-size: 16px; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3); margin-top: 16px; }
@@ -70,27 +67,28 @@
         
         .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); padding: 16px 0; border-radius: 16px; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); text-align: center; }
         
-        /* 3D কার্ড ফ্লিপিং অ্যানিমেশন আর্কিটেকচার */
+        /* 3D কার্ড ফ্লিপিং এবং কন্টেন্ট প্রোটেকশন */
         .flashcard-perspective { perspective: 1000px; width: 100%; height: 384px; margin: 0 auto; }
         #flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
         
-        /* ফ্লিপ স্টেট ক্লাস */
         .flipped-state { transform: rotateY(180deg); }
         
-        .card-face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; background: var(--bg-card); border-radius: 40px; border: 1px solid var(--border); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.04); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; overflow: hidden; }
+        .card-face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; background: var(--bg-card); border-radius: 40px; border: 1px solid var(--border); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.04); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; overflow: hidden; }
         
         .card-back { transform: rotateY(180deg); }
         
-        /* টেক্সট কন্টেইনার ও কাটিং প্রোটেকশন */
-        .card-content-wrapper { width: 100%; height: 75%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        /* কন্টেন্ট বাউন্ডারি বক্স - টেক্সট কাটিং প্রোটেকশন */
+        .card-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 20px 0; }
         
-        /* ইংরেজি শব্দ যাতে কখনো ভেঙে নিচের লাইনে না যায় */
-        .card-word-style { font-weight: 900; letter-spacing: -1px; text-transform: uppercase; color: var(--text-main); white-space: nowrap; text-align: center; width: 100%; }
-        .card-sentence-style { font-weight: bold; color: var(--text-muted); text-align: center; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5; }
+        /* ইংরেজি শব্দ কাটা পড়া রোধ করতে কাস্টম রুলস */
+        .card-word-style { font-weight: 900; letter-spacing: -1px; text-transform: uppercase; color: var(--text-main); text-align: center; max-width: 100%; display: block; word-break: keep-all; overflow-wrap: normal; white-space: nowrap; }
+        .card-sentence-style { font-weight: bold; color: var(--text-muted); text-align: center; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5; display: block; }
         
-        .card-action-btn { position: absolute; top: 24px; background: none; border: none; font-size: 24px; color: #cbd5e1; cursor: pointer; padding: 8px; z-index: 30; }
+        /* বাটন আর্কিটেকচার - আগের মতো ফিক্সড পজিশন */
+        .card-action-btn { position: absolute; top: 24px; background: none; border: none; font-size: 24px; color: #cbd5e1; cursor: pointer; padding: 8px; z-index: 50; }
         .card-action-btn:hover { color: var(--primary); }
-        .speak-btn-pos { right: 24px; } .copy-btn-pos { left: 24px; font-size: 20px; }
+        #speak-btn { right: 32px; } 
+        #copy-btn { left: 32px; font-size: 20px; }
         .flip-hint { position: absolute; bottom: 24px; color: #cbd5e1; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3em; pointer-events: none; }
         .dark .flip-hint { color: #334155; }
         
@@ -102,7 +100,6 @@
         .modal-box { background: var(--bg-card); padding: 24px; border-radius: 32px; width: 100%; max-width: 320px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border); text-center; }
         .modal-box p { margin-bottom: 24px; font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--text-main); }
         
-        /* ৭ দিনের ব্যাকআপ রিমাইন্ডার ব্যানার */
         #backup-reminder-banner { background: linear-gradient(to right, #f59e0b, #ea580c); color: white; padding: 12px 16px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); z-index: 50; font-size: 11px; font-weight: bold; display: none; justify-content: space-between; align-items: center; width: 100%; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; margin-bottom: 8px; }
         #backup-reminder-banner button { background: white; color: #ea580c; padding: 6px 12px; border-radius: 12px; border: none; font-weight: 900; cursor: pointer; font-size: 11px; }
         
@@ -122,7 +119,7 @@
         </div>
 
         <header class="flex justify-between items-center">
-            <h1 onclick="showSection('input')">SentVoc <span class="badge">v5.8</span></h1>
+            <h1 onclick="showSection('input')">SentVoc <span class="badge">v5.9</span></h1>
             <div class="flex items-center" style="gap:16px;">
                 <button onclick="toggleTheme()" class="btn-icon"><span id="theme-icon">🌙</span></button>
                 <button onclick="showSection('learned')" class="btn-text">Learned</button>
@@ -152,19 +149,19 @@
             
             <div class="flashcard-perspective">
                 <div id="flashcard" onclick="flipCard()">
+                    
+                    <button id="speak-btn" onclick="speakText(event)" class="card-action-btn">🔊</button>
+                    <button id="copy-btn" onclick="copyCardContent(event)" class="card-action-btn" title="Copy Content">📋</button>
+
                     <div class="card-face card-front">
-                        <button onclick="speakText(event, false)" class="card-action-btn speak-btn-pos">🔊</button>
-                        <button onclick="copyCardContent(event, false)" class="card-action-btn copy-btn-pos" title="Copy Word">📋</button>
-                        <div class="card-content-wrapper" id="front-wrapper">
+                        <div class="card-content-wrapper">
                             <div id="card-word-element" class="card-word-style rtl-auto"></div>
                         </div>
                         <div class="flip-hint">Tap to flip</div>
                     </div>
                     
                     <div class="card-face card-back">
-                        <button onclick="speakText(event, true)" class="card-action-btn speak-btn-pos">🔊</button>
-                        <button onclick="copyCardContent(event, true)" class="card-action-btn copy-btn-pos" title="Copy Sentence">📋</button>
-                        <div class="card-content-wrapper" id="back-wrapper">
+                        <div class="card-content-wrapper">
                             <div id="card-sentence-element" class="card-sentence-style rtl-auto"></div>
                         </div>
                         <div class="flip-hint">Tap to flip</div>
@@ -309,7 +306,6 @@
             if (confirmCallback) { confirmCallback(result); confirmCallback = null; }
         }
 
-        // হাইলাইট ওয়ার্ড বাটন সিলেকশন মেকানিজম (ফিক্সড - লঞ্চ টাইমে দেখাবে না)
         document.addEventListener('selectionchange', () => {
             const sel = window.getSelection();
             const tool = document.getElementById('bold-tool');
@@ -370,26 +366,27 @@
 
         function closeModal() { document.getElementById('dict-modal').style.display = 'none'; }
 
-        // ইংরেজি শব্দের ১-লাইন ও ডাইনামিক ফন্ট ফিটিং ক্যালকুলেটর (অপ্টিমাইজড)
+        // ফন্ট এডজাস্টমেন্ট ইঞ্জিন (১ লাইনে শব্দ লকিং অ্যালগরিদম)
         function adjustFontSize() {
-            // সামনের পিঠের শব্দ ফিটিং
-            const frontContainer = document.getElementById('front-wrapper');
             const wordEl = document.getElementById('card-word-element');
-            let fSize = 44; 
-            wordEl.style.fontSize = fSize + 'px';
-            while ((wordEl.offsetWidth > frontContainer.offsetWidth || wordEl.offsetHeight > frontContainer.offsetHeight) && fSize > 14) {
-                fSize -= 2;
+            if (wordEl) {
+                let fSize = 44; 
                 wordEl.style.fontSize = fSize + 'px';
+                // যতক্ষণ না শব্দ এক লাইনে পুরোপুরি স্ক্রিনের ডানে-বামে ফিট হয়, ততক্ষণ সাইজ ছোট হবে
+                while ((wordEl.scrollWidth > wordEl.clientWidth || wordEl.offsetHeight > 120) && fSize > 14) {
+                    fSize -= 1;
+                    wordEl.style.fontSize = fSize + 'px';
+                }
             }
 
-            // পেছনের পিঠের বাক্য ফিটিং
-            const backContainer = document.getElementById('back-wrapper');
             const sentenceEl = document.getElementById('card-sentence-element');
-            let bSize = 24; 
-            sentenceEl.style.fontSize = bSize + 'px';
-            while ((sentenceEl.offsetHeight > backContainer.offsetHeight || sentenceEl.offsetWidth > backContainer.offsetWidth) && bSize > 12) {
-                bSize -= 1;
+            if (sentenceEl) {
+                let bSize = 24; 
                 sentenceEl.style.fontSize = bSize + 'px';
+                while ((sentenceEl.scrollHeight > sentenceEl.clientHeight) && bSize > 12) {
+                    bSize -= 1;
+                    sentenceEl.style.fontSize = bSize + 'px';
+                }
             }
         }
 
@@ -402,21 +399,17 @@
             
             document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
             
-            // সামনের পিঠ লোড করা
             wordEl.innerText = card.word;
             
-            // পেছনের পিঠ লোড করা
             const targetWord = card.word.trim();
             let rawSentence = card.sentence;
             const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`(${escapeRegExp(targetWord)})`, 'gi');
             sentenceEl.innerHTML = rawSentence.replace(regex, `<mark onclick="lookup('$1')">$1</mark>`);
             
-            // কন্টেন্ট ইনজেক্ট হওয়ার পর ফন্ট সাইজ ক্যালকুলেট করা
             setTimeout(adjustFontSize, 20);
         }
 
-        // থ্রিডি স্মুথ ফ্লিপ মেকানিজম
         function flipCard() { 
             isFlipped = !isFlipped; 
             const cardElement = document.getElementById('flashcard');
@@ -427,11 +420,12 @@
             }
         }
 
-        function copyCardContent(event, fromBack) {
+        // হুবহু অরিজিনাল v5.6 কপি মেকানিজম (পুনর্বহাল)
+        function copyCardContent(event) {
             event.stopPropagation(); 
             const card = currentSessionCards[currentIndex];
             if (!card) return;
-            const textToCopy = fromBack ? card.sentence : card.word;
+            const textToCopy = isFlipped ? card.sentence : card.word;
             
             navigator.clipboard.writeText(textToCopy).then(() => { showToast(); }).catch(() => {
                 const el = document.createElement('textarea');
@@ -445,12 +439,12 @@
             setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(-10px)'; }, 2000);
         }
 
-        // আইফোনের জন্য হুবহু অপরিবর্তিত রাখা স্পীচ ইঞ্জিন মেকানিজম 
-        function speakText(event, fromBack) {
+        // হুবহু অরিজিনাল v5.6 আইফোন স্পীচ মেকানিজম (পুনর্বহাল)
+        function speakText(event) {
             event.stopPropagation();
             const card = currentSessionCards[currentIndex];
             if(!card) return;
-            const ut = new SpeechSynthesisUtterance(fromBack ? card.sentence : card.word);
+            const ut = new SpeechSynthesisUtterance(isFlipped ? card.sentence : card.word);
             ut.lang = document.getElementById('learn-lang').value;
             window.speechSynthesis.speak(ut);
         }
