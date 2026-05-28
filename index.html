@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v5.6</title>
+    <title>SentVoc v5.7</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,146 +11,207 @@
     <meta name="theme-color" content="#4f46e5">
     <link class="app-icon" rel="apple-touch-icon" href="icon.png">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
     <style>
+        /* সম্পূর্ণ অফলাইন-ফ্রেন্ডলি বেসিক সিএসএস আর্কিটেকচার (টেইলউইন্ড ডিপেন্ডেন্সি মুক্ত) */
+        :root {
+            --bg-main: #f8fafc; --bg-card: #ffffff; --text-main: #1e293b; --text-muted: #64748b; --primary: #4f46e5; --border: #e2e8f0;
+        }
+        .dark {
+            --bg-main: #020617; --bg-card: #0f172a; --text-main: #e2e8f0; --text-muted: #94a3b8; --primary: #6366f1; --border: #1e293b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; position: relative; padding-bottom: 40px; }
+        .max-w-md { max-w: 448px; margin: 0 auto; padding: 16px; }
+        .flex { display: flex; } .justify-between { justify-content: space-between; } .items-center { align-items: center; } .flex-col { flex-direction: column; } .justify-center { justify-content: center; }
+        .grid { display: grid; } .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gap-3 { gap: 12px; } .gap-2 { gap: 8px; }
+        .hidden { display: none !important; }
         .rtl-auto { unicode-bidi: plaintext; text-align: start; }
+        
+        /* হেডার ও বাটন স্টাইল */
+        header { padding: 24px 0; }
+        h1 { font-size: 24px; font-weight: 900; color: var(--primary); cursor: pointer; user-select: none; }
+        .badge { font-size: 10px; background: #e0e7ff; color: #4f46e5; padding: 2px 8px; rounded: 4px; margin-left: 4px; border-radius: 4px; }
+        .dark .badge { background: #312e81; color: #c7d2fe; }
+        .btn-icon { background: var(--bg-card); border: 1px solid var(--border); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .btn-text { font-size: 14px; font-weight: bold; color: var(--text-muted); background: none; border: none; cursor: pointer; }
+        
+        /* ইনপুট বক্স */
+        .relative { position: relative; }
+        #note-input { w-width: 100%; width: 100%; padding: 24px; min-height: 220px; max-height: 250px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 40px; font-size: 20px; line-height: 1.6; overflow-y: auto; outline: none; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        #note-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15); }
         #note-input:empty:before { content: attr(placeholder); color: #94a3b8; }
-        .vocab-word { cursor: pointer; }
+        .vocab-word { cursor: pointer; color: var(--primary); font-weight: 900; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+        
+        #bold-tool { position: absolute; top: -48px; left: 0; background: var(--primary); color: white; font-size: 12px; font-weight: bold; padding: 8px 16px; border-radius: 9999px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; z-index: 25; }
+        .btn-primary { width: 100%; background: var(--primary); color: white; padding: 16px; border-radius: 16px; font-weight: bold; border: none; font-size: 16px; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3); margin-top: 16px; }
+        .btn-primary:active, .btn-icon:active, .btn-text:active { transform: scale(0.95); }
+        
+        .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); padding: 16px 0; border-radius: 16px; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .btn-secondary:active { background: rgba(79, 70, 229, 0.05); }
+        
+        /* ফ্ল্যাশকার্ড আর্কিটেকচার এবং ফিটিং কন্টেইনার */
+        #flashcard { height: 384px; width: 100%; background: var(--bg-card); border-radius: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; cursor: pointer; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1); position: relative; border: 1px solid var(--border); overflow: hidden; }
+        
+        /* ডাইনামিক ফন্ট সাইজ কন্টেইনার (এটি টেক্সট কাটা পড়া রোধ করবে) */
+        #card-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 20px 0; }
+        #card-content { text-align: center; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4; display: block; }
+        
+        .card-word-style { font-weight: 900; letter-spacing: -1px; text-transform: uppercase; color: var(--text-main); }
+        .card-sentence-style { font-weight: bold; color: var(--text-muted); }
+        
+        .card-action-btn { position: absolute; top: 24px; background: none; border: none; font-size: 24px; color: #cbd5e1; cursor: pointer; padding: 8px; z-index: 10; }
+        .card-action-btn:hover { color: var(--primary); }
+        #speak-btn { right: 32px; } #copy-btn { left: 32px; font-size: 20px; }
+        .flip-hint { position: absolute; bottom: 24px; color: #cbd5e1; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3em; }
+        .dark .flip-hint { color: #334155; }
+        
+        mark { background: #fef08a; padding: 0 4px; border-radius: 4px; font-weight: 900; font-style: italic; cursor: pointer; color: #000; }
+        .dark mark { background: rgba(234, 179, 8, 0.5); color: #fff; }
+        
+        /* মোডাল ও অ্যালার্টস */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(4px); z-index: 110; }
+        .modal-box { background: var(--bg-card); padding: 24px; border-radius: 32px; width: 100%; max-width: 320px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border); text-center; }
+        .modal-box p { margin-bottom: 24px; font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--text-main); }
+        
+        /* ব্যাকআপ রিমাইন্ডার ব্যানার */
+        #backup-reminder-banner { background: linear-gradient(to right, #f59e0b, #ea580c); color: white; padding: 12px 16px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); z-index: 50; font-size: 12px; font-weight: bold; display: none; justify-content: space-between; align-items: center; max-width: 448px; margin: 0 auto; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+        #backup-reminder-banner button { background: white; color: #ea580c; padding: 6px 12px; border-radius: 12px; border: none; font-weight: 900; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        /* টোস্ট নোটিফিকেশন */
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-10px); background: rgba(15,23,42,0.9); color: white; font-size: 12px; font-weight: bold; padding: 12px 20px; border-radius: 9999px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); z-index: 100; opacity: 0; pointer-events: none; transition: all 0.3s transform; }
+        
+        /* সেটিংস এবং ডিকশনারি */
+        .select-lang { width: 100%; padding: 12px; background: var(--bg-main); color: var(--text-main); border-radius: 12px; border: none; font-size: 14px; outline: none; }
+        .learned-card { background: var(--bg-card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); border-left: 4px solid #10b981; margin-bottom: 12px; }
+        
+        .border-btn { border-bottom: 1px solid var(--border); padding-bottom: 2px; background: none; border-top:none; border-left:none; border-right:none; font-weight: bold; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 font-sans min-h-screen text-slate-800 dark:text-slate-200 transition-colors duration-300 relative">
+<body>
 
-    <div id="backup-reminder-banner" class="hidden bg-gradient-to-r Jacks from-amber-500 to-orange-600 text-white px-4 py-3 text-center shadow-md relative z-50 text-xs font-bold animate-fade-in flex justify-between items-center max-w-md mx-auto rounded-b-2xl">
-        <span class="flex items-center gap-1">⚠️ It's been 7 days since your last backup!</span>
-        <button onclick="triggerOneTapBackup()" class="bg-white text-orange-600 px-3 py-1.5 rounded-xl shadow font-black active:scale-95 transition-transform">Backup Now</button>
+    <div id="backup-reminder-banner">
+        <span>⚠️ It's been 7 days since your last backup!</span>
+        <button onclick="triggerOneTapBackup()">Backup Now</button>
     </div>
 
-    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-5 py-3 rounded-full shadow-2xl backdrop-blur-sm z-[100] opacity-0 pointer-events-none transition-all duration-300 transform -translate-y-2">
-        Copied to clipboard! ✓
-    </div>
+    <div id="toast">Copied to clipboard! ✓</div>
 
-    <div id="custom-alert-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-6 backdrop-blur-sm z-[110]">
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-[2rem] w-full max-w-xs shadow-2xl border border-slate-200 dark:border-slate-800 text-center transform scale-95 transition-transform duration-200">
-            <div id="custom-alert-icon" class="text-3xl mb-3">✨</div>
-            <p id="custom-alert-message" class="text-slate-700 dark:text-slate-300 font-medium text-base leading-relaxed mb-6"></p>
-            <button onclick="closeCustomAlert()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform shadow-lg shadow-indigo-600/20">Okay</button>
+    <div id="custom-alert-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div id="custom-alert-icon" style="font-size:30px; margin-bottom:12px;">✨</div>
+            <p id="custom-alert-message"></p>
+            <button onclick="closeCustomAlert()" class="btn-primary" style="margin-top:0;">Okay</button>
         </div>
     </div>
 
-    <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-6 backdrop-blur-sm z-[110]">
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-[2rem] w-full max-w-xs shadow-2xl border border-slate-200 dark:border-slate-800 text-center">
-            <div class="text-3xl mb-3">🗑️</div>
-            <p class="text-slate-700 dark:text-slate-300 font-bold text-lg mb-2">Are you sure?</p>
-            <p class="text-slate-400 text-xs mb-6">This card will be permanently deleted.</p>
+    <div id="custom-confirm-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div style="font-size:30px; margin-bottom:12px;">🗑️</div>
+            <h3 style="font-size:18px; font-weight:bold; margin-bottom:8px;">Are you sure?</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:24px;">This card will be permanently deleted.</p>
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="closeCustomConfirm(false)" class="w-full bg-slate-100 dark:bg-slate-800 text-slate-500 py-3 rounded-xl font-bold active:scale-95 transition-transform">Cancel</button>
-                <button onclick="closeCustomConfirm(true)" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform shadow-lg shadow-red-500/20">Delete</button>
+                <button onclick="closeCustomConfirm(false)" class="btn-secondary" style="padding:12px 0;">Cancel</button>
+                <button onclick="closeCustomConfirm(true)" class="btn-primary" style="margin-top:0; padding:12px 0; background:#ef4444; box-shadow:none;">Delete</button>
             </div>
         </div>
     </div>
 
-    <div id="app" class="max-w-md mx-auto p-4 pb-10">
-        <header class="flex justify-between items-center py-6">
-            <h1 onclick="showSection('input')" class="text-2xl font-black text-indigo-600 cursor-pointer select-none">
-                SentVoc <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900 px-2 py-0.5 rounded ml-1">v5.6</span>
-            </h1>
-            <div class="flex items-center space-x-4">
-                <button onclick="toggleTheme()" class="text-xl bg-white dark:bg-slate-800 w-10 h-10 rounded-full shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
-                    <span id="theme-icon">🌙</span>
-                </button>
-                <button onclick="showSection('learned')" class="text-sm font-bold text-slate-500">Learned</button>
-                <button onclick="toggleSettings()" class="text-xl p-2 active:scale-90 transition-transform">⚙️</button>
+    <div id="app" class="max-w-md">
+        <header class="flex justify-between items-center">
+            <h1 onclick="showSection('input')">SentVoc <span class="badge">v5.7</span></h1>
+            <div class="flex items-center" style="gap:16px;">
+                <button onclick="toggleTheme()" class="btn-icon"><span id="theme-icon">🌙</span></button>
+                <button onclick="showSection('learned')" class="btn-text">Learned</button>
+                <button onclick="toggleSettings()" class="btn-text" style="font-size:20px;">⚙️</button>
             </div>
         </header>
 
-        <div id="input-view" class="space-y-4">
+        <div id="input-view">
             <div class="relative">
-                <button id="bold-tool" onclick="makeBold()" class="hidden absolute -top-12 left-0 bg-indigo-600 text-white text-xs px-4 py-2 rounded-full shadow-lg z-25 font-bold active:scale-95 transition-transform">
-                    ✨ Highlight Word
-                </button>
-                <div id="note-input" contenteditable="true" class="w-full p-6 min-h-[220px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-sm outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all text-xl leading-relaxed overflow-y-auto rtl-auto" placeholder="Paste or type text here..."></div>
+                <button id="bold-tool" onclick="makeBold()">✨ Highlight Word</button>
+                <div id="note-input" contenteditable="true" placeholder="Paste or type text here..." class="rtl-auto"></div>
             </div>
-            <button onclick="saveNote()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">Save Card</button>
+            <button onclick="saveNote()" class="btn-primary">Save Card</button>
             
-            <div class="pt-6 grid grid-cols-3 gap-3">
-                <button onclick="startRepeat('today')" class="bg-white dark:bg-slate-900 py-4 text-xs rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 font-bold active:bg-indigo-50">Today</button>
-                <button onclick="startRepeat('week')" class="bg-white dark:bg-slate-900 py-4 text-xs rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 font-bold active:bg-indigo-50">Week</button>
-                <button onclick="startRepeat('all')" class="bg-white dark:bg-slate-900 py-4 text-xs rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 font-bold active:bg-indigo-50">All</button>
+            <div class="grid grid-cols-3 gap-3" style="margin-top:24px;">
+                <button onclick="startRepeat('today')" class="btn-secondary">Today</button>
+                <button onclick="startRepeat('week')" class="btn-secondary">Week</button>
+                <button onclick="startRepeat('all')" class="btn-secondary">All</button>
             </div>
         </div>
 
         <div id="repeat-view" class="hidden">
-            <div class="flex justify-between items-center mb-6 px-2">
-                <div id="card-progress" class="text-slate-400 font-bold text-xs">0 / 0</div>
-                <button onclick="deleteCurrentCard()" class="text-red-400 font-bold text-[10px] uppercase tracking-wider">🗑 Delete</button>
+            <div class="flex justify-between items-center" style="margin-bottom:24px; padding:0 8px;">
+                <div id="card-progress" style="color:var(--text-muted); font-weight:bold; font-size:12px;">0 / 0</div>
+                <button onclick="deleteCurrentCard()" class="btn-text" style="color:#f87171; font-size:10px; letter-spacing:0.1em; text-transform:uppercase;">🗑 Delete</button>
             </div>
             
-            <div id="flashcard" onclick="flipCard()" class="h-96 w-full bg-white dark:bg-slate-900 rounded-[2.5rem] flex flex-col items-center justify-center p-8 cursor-pointer shadow-2xl relative border border-slate-100 dark:border-slate-800 overflow-hidden active:scale-[0.98] transition-transform">
-                <button onclick="speakText(event)" class="absolute top-6 right-8 text-2xl text-slate-300 hover:text-indigo-500 transition-colors z-10 p-2">🔊</button>
-                <button onclick="copyCardContent(event)" class="absolute top-6 left-8 text-xl text-slate-300 hover:text-indigo-500 active:scale-90 transition-all z-10 p-2" title="Copy Content">📋</button>
+            <div id="flashcard" onclick="flipCard()">
+                <button id="speak-btn" onclick="speakText(event)" class="card-action-btn">🔊</button>
+                <button id="copy-btn" onclick="copyCardContent(event)" class="card-action-btn" title="Copy Content">📋</button>
                 
-                <div id="card-content" class="text-center leading-relaxed w-full rtl-auto text-2xl"></div>
-                <div class="absolute bottom-6 text-slate-300 dark:text-slate-600 text-[9px] font-black uppercase tracking-[0.3em]">Tap to flip</div>
+                <div id="card-content-wrapper">
+                    <div id="card-content" class="rtl-auto"></div>
+                </div>
+                
+                <div class="flip-hint">Tap to flip</div>
             </div>
 
-            <div class="mt-8 space-y-6">
-                <div class="flex justify-between items-center px-2">
-                    <button onclick="prevCard()" id="prev-btn" class="text-indigo-600 font-bold text-sm disabled:opacity-30">← Previous</button>
-                    <button id="next-btn" onclick="nextCard()" class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg">Next →</button>
+            <div style="margin-top:32px;" class="flex flex-col gap-3">
+                <div class="flex justify-between items-center" style="padding:0 8px; width:100%;">
+                    <button onclick="prevCard()" id="prev-btn" class="btn-text" style="color:var(--primary); font-size:14px;">← Previous</button>
+                    <button id="next-btn" onclick="nextCard()" class="btn-primary" style="margin-top:0; width:auto; padding:16px 40px;">Next →</button>
                 </div>
-                <div class="flex justify-center pt-2">
-                    <button id="mastered-btn" onclick="markAsLearned()" class="text-emerald-500 font-bold text-xs uppercase tracking-widest border-b border-emerald-200 dark:border-emerald-900 pb-0.5">✓ Mastered</button>
-                    <button id="relearn-btn" onclick="processRelearn()" class="hidden text-red-500 font-bold text-xs uppercase tracking-widest border-b border-red-200 dark:border-red-900 pb-0.5">↺ Relearn</button>
+                <div class="flex justify-center" style="margin-top:8px; gap:20px;">
+                    <button id="mastered-btn" onclick="markAsLearned()" class="border-btn" style="color:#10b981;">✓ Mastered</button>
+                    <button id="relearn-btn" onclick="processRelearn()" class="hidden border-btn" style="color:#ef4444;">↺ Relearn</button>
                 </div>
             </div>
         </div>
 
         <div id="learned-view" class="hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">Mastered Words</h2>
-                <button onclick="showSection('input')" class="text-indigo-600 font-bold text-sm">Home</button>
+            <div class="flex justify-between items-center" style="margin-bottom:24px;">
+                <h2 style="font-size:20px; font-weight:bold;">Mastered Words</h2>
+                <button onclick="showSection('input')" class="btn-text" style="color:var(--primary);">Home</button>
             </div>
-            <button onclick="startRepeat('mastered')" class="w-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 py-4 rounded-2xl font-bold mb-6 border border-indigo-100 dark:border-indigo-800/50 shadow-sm active:scale-95 transition-all">🔄 Review Mastered Cards</button>
-            <div id="learned-list" class="space-y-3"></div>
+            <button onclick="startRepeat('mastered')" class="btn-primary" style="background:rgba(79, 70, 229, 0.1); color:var(--primary); box-shadow:none; border:1px solid rgba(79, 70, 229, 0.2); margin-bottom:24px;">🔄 Review Mastered Cards</button>
+            <div id="learned-list"></div>
         </div>
     </div>
 
-    <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-6 backdrop-blur-sm z-[60]">
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-[2rem] w-full max-w-xs shadow-2xl border border-slate-200 dark:border-slate-800">
-            <h2 class="font-bold text-xl mb-6 text-center text-indigo-600">Settings</h2>
-            <div class="space-y-4">
-                <div class="space-y-1">
-                    <label class="text-[10px] uppercase font-bold text-slate-400 ml-2">Lang: Learn / Target</label>
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box" style="max-width:280px;">
+            <h2 style="font-weight:bold; font-size:20px; margin-bottom:24px; color:var(--primary);">Settings</h2>
+            <div class="flex flex-col gap-3" style="text-align:left;">
+                <div>
+                    <label style="font-size:10px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; margin-left:8px; display:block; margin-bottom:4px;">Lang: Learn / Target</label>
                     <div class="grid grid-cols-2 gap-2">
-                        <select id="learn-lang" class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm border-none outline-none"></select>
-                        <select id="target-lang" class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm border-none outline-none"></select>
+                        <select id="learn-lang" class="select-lang"></select>
+                        <select id="target-lang" class="select-lang"></select>
                     </div>
                 </div>
-                <hr class="border-slate-100 dark:border-slate-800">
-                <button onclick="exportData()" class="w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-xl text-sm font-bold">📤 Export Backup</button>
-                <label class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 py-3 rounded-xl text-sm font-bold text-center block cursor-pointer">
+                <hr style="border:none; border-top:1px solid var(--border); margin:8px 0;">
+                <button onclick="exportData()" class="btn-secondary" style="padding:12px; width:100%;">📤 Export Backup</button>
+                <label class="btn-primary" style="margin-top:0; padding:12px; font-size:12px; text-align:center; display:block; cursor:pointer;">
                     📥 Import Backup
                     <input type="file" id="importFile" class="hidden" onchange="importData(event)">
                 </label>
             </div>
-            <button onclick="toggleSettings()" class="mt-8 w-full py-3 text-slate-500 font-bold text-sm border-t border-slate-100 dark:border-slate-800">Close Settings</button>
+            <button onclick="toggleSettings()" class="btn-text" style="margin-top:32px; width:100%; padding-top:12px; border-top:1px solid var(--border);">Close Settings</button>
         </div>
     </div>
 
-    <div id="dict-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-6 backdrop-blur-sm z-[70]">
-        <div class="bg-white dark:bg-slate-900 p-8 rounded-[2rem] w-full max-w-xs shadow-2xl">
-            <div class="mb-6">
-                <h3 id="dict-word" class="text-xl font-black text-indigo-600 mb-2 uppercase"></h3>
-                <p id="dict-meaning" class="text-slate-700 dark:text-slate-300 text-lg leading-relaxed"></p>
+    <div id="dict-modal" class="modal-overlay">
+        <div class="modal-box" style="text-align:left; max-width:300px;">
+            <div style="margin-bottom:24px;">
+                <h3 id="dict-word" style="font-size:20px; font-weight:900; color:var(--primary); margin-bottom:8px; text-transform:uppercase;"></h3>
+                <p id="dict-meaning" style="font-size:18px; color:var(--text-main); margin-bottom:0; font-weight:500;"></p>
             </div>
-            <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <p class="text-[10px] uppercase font-bold text-slate-400 mb-2">Sentence Meaning</p>
-                <p id="sentence-meaning" class="text-slate-500 dark:text-slate-400 text-sm italic leading-relaxed"></p>
+            <div style="padding-top:16px; border-top:1px solid var(--border);">
+                <p style="font-size:10px; text-transform:uppercase; font-weight:bold; color:var(--text-muted); margin-bottom:8px;">Sentence Meaning</p>
+                <p id="sentence-meaning" style="font-size:14px; color:var(--text-muted); font-style:italic; line-height:1.5;"></p>
             </div>
-            <button onclick="closeModal()" class="mt-8 w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-xl font-bold">Close</button>
+            <button onclick="closeModal()" class="btn-secondary" style="margin-top:32px; width:100%; padding:12px 0;">Close</button>
         </div>
     </div>
 
@@ -169,74 +230,56 @@
             applyTheme();
             setupLanguages();
             showSection('input');
-            checkBackupStatus(); // অ্যাপ লোড হওয়ার সময় ব্যাকআপ চেক করবে
+            checkBackupStatus();
         };
 
-        // --- স্মার্ট ৭ দিন ব্যাকআপ চেকার ইঞ্জিন (নতুন) ---
         function checkBackupStatus() {
             const lastBackup = localStorage.getItem('sentvoc_last_backup');
             const totalCards = Object.values(notes).flat().length + learnedWords.length;
-            
-            // যদি অ্যাপে কোনো কার্ডই না থাকে, তবে নোটিফিকেশন দেখানোর প্রয়োজন নেই
             if (totalCards === 0) return;
-
             if (!lastBackup) {
-                // ফার্স্ট টাইম ইউজার হলে আজকের দিনটিকে প্রথম ব্যাকআপ মার্কার হিসেবে সেট করবে
                 localStorage.setItem('sentvoc_last_backup', Date.now());
                 return;
             }
-
             const daysSinceLastBackup = (Date.now() - parseInt(lastBackup)) / (1000 * 60 * 60 * 24);
-            
             if (daysSinceLastBackup >= 7) {
-                document.getElementById('backup-reminder-banner').classList.remove('hidden');
+                document.getElementById('backup-reminder-banner').style.display = 'flex';
             }
         }
 
-        // --- ওয়ান-ট্যাপ ব্যাকআপ ডাউনলোড ফাংশন (নতুন) ---
         function triggerOneTapBackup() {
-            exportData(); // ডেটা ডাউনলোড করাবে
-            localStorage.setItem('sentvoc_last_backup', Date.now()); // টাইমস্ট্যাম্প রিসেট করবে
-            document.getElementById('backup-reminder-banner').classList.add('hidden'); // ব্যানার হাইড করবে
+            exportData();
+            localStorage.setItem('sentvoc_last_backup', Date.now());
+            document.getElementById('backup-reminder-banner').style.display = 'none';
             showCustomAlert("Backup Downloaded & Safe! Reminder reset for next 7 days.", "💾");
         }
 
         function showCustomAlert(msg, icon = "✨") {
             document.getElementById('custom-alert-icon').innerText = icon;
             document.getElementById('custom-alert-message').innerText = msg;
-            document.getElementById('custom-alert-modal').classList.replace('hidden', 'flex');
+            document.getElementById('custom-alert-modal').style.display = 'flex';
         }
         
-        function closeCustomAlert() {
-            document.getElementById('custom-alert-modal').classList.replace('flex', 'hidden');
-        }
+        function closeCustomAlert() { document.getElementById('custom-alert-modal').style.display = 'none'; }
 
         function showCustomConfirm(callback) {
             confirmCallback = callback;
-            document.getElementById('custom-confirm-modal').classList.replace('hidden', 'flex');
+            document.getElementById('custom-confirm-modal').style.display = 'flex';
         }
         
         function closeCustomConfirm(result) {
-            document.getElementById('custom-confirm-modal').classList.replace('flex', 'hidden');
-            if (confirmCallback) {
-                confirmCallback(result);
-                confirmCallback = null;
-            }
+            document.getElementById('custom-confirm-modal').style.display = 'none';
+            if (confirmCallback) { confirmCallback(result); confirmCallback = null; }
         }
 
         document.addEventListener('selectionchange', () => {
             const sel = window.getSelection();
             const tool = document.getElementById('bold-tool');
             const inputField = document.getElementById('note-input');
-            
             if (sel && sel.toString().trim().length > 0 && inputField.contains(sel.anchorNode)) {
-                tool.classList.remove('hidden');
+                tool.style.display = 'block';
             } else {
-                setTimeout(() => {
-                    if (window.getSelection().toString().trim().length === 0) {
-                        tool.classList.add('hidden');
-                    }
-                }, 200);
+                setTimeout(() => { if (window.getSelection().toString().trim().length === 0) tool.style.display = 'none'; }, 200);
             }
         });
 
@@ -245,27 +288,25 @@
             if (!sel || !sel.rangeCount) return;
             const range = sel.getRangeAt(0);
             const span = document.createElement('span');
-            span.className = "vocab-word text-indigo-600 dark:text-indigo-400 font-black underline decoration-2 underline-offset-4";
+            span.className = "vocab-word";
             span.innerText = sel.toString();
             range.deleteContents();
             range.insertNode(span);
-            document.getElementById('bold-tool').classList.add('hidden');
+            document.getElementById('bold-tool').style.display = 'none';
             window.getSelection().removeAllRanges();
         }
 
         function toggleSettings() {
             const modal = document.getElementById('settings-modal');
-            modal.classList.toggle('hidden');
-            modal.classList.toggle('flex');
+            modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
         }
 
         async function lookup(word) {
             if (window.event) window.event.stopPropagation();
-            
             const cleanWord = word.replace(/[.,!?।()]/g, "").trim();
             if (!cleanWord) return;
 
-            document.getElementById('dict-modal').classList.replace('hidden', 'flex');
+            document.getElementById('dict-modal').style.display = 'flex';
             document.getElementById('dict-word').innerText = cleanWord;
             document.getElementById('dict-meaning').innerText = "Translating...";
             document.getElementById('sentence-meaning').innerText = "...";
@@ -289,7 +330,24 @@
             }
         }
 
-        function closeModal() { document.getElementById('dict-modal').classList.replace('flex', 'hidden'); }
+        function closeModal() { document.getElementById('dict-modal').style.display = 'none'; }
+
+        // --- রেসপন্সিভ ফন্ট সাইজ ফিটিং মেকানিজম (নতুন) ---
+        function adjustFontSize() {
+            const container = document.getElementById('card-content-wrapper');
+            const content = document.getElementById('card-content');
+            
+            let maxFontSize = isFlipped ? 24 : 48; // ডিফল্ট সাইজ ইংরেজী ও উর্দুর জন্য অপটিমাইজড
+            let minFontSize = 14;
+            
+            content.style.fontSize = maxFontSize + 'px';
+            
+            // কন্টেন্ট যতক্ষণ না বক্সের উচ্চতা এবং প্রস্থের ভেতরে সঠিকভাবে ফিট হচ্ছে, ততক্ষণ লুপ ফন্ট সাইজ ছোট করবে
+            while ((content.offsetHeight > container.offsetHeight || content.offsetWidth > container.offsetWidth) && maxFontSize > minFontSize) {
+                maxFontSize--;
+                content.style.fontSize = maxFontSize + 'px';
+            }
+        }
 
         function showCard() {
             const card = currentSessionCards[currentIndex];
@@ -297,57 +355,45 @@
             document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
             
             if (isFlipped) {
-                content.className = "text-2xl font-bold text-slate-700 dark:text-slate-300 leading-snug text-center p-2 rtl-auto";
-                
+                content.className = "card-sentence-style";
                 const targetWord = card.word.trim();
                 let rawSentence = card.sentence;
-                
                 const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${escapeRegExp(targetWord)})`, 'gi');
                 
-                let htmlOutput = rawSentence.replace(regex, `<mark class="bg-yellow-200 dark:bg-yellow-500/50 px-1 rounded font-black italic cursor-pointer" onclick="lookup('$1')">$1</mark>`);
-                content.innerHTML = htmlOutput;
-                
+                content.innerHTML = rawSentence.replace(regex, `<mark onclick="lookup('$1')">$1</mark>`);
             } else {
                 content.innerText = card.word;
-                content.className = "text-5xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center rtl-auto";
+                content.className = "card-word-style";
             }
+            
+            // কন্টেন্ট লোড হওয়ার ঠিক পরপরই ডাইনামিক ফন্ট ক্যালকুলেশন মেকানিজম কল হবে
+            setTimeout(adjustFontSize, 10);
         }
 
         function copyCardContent(event) {
             event.stopPropagation(); 
             const card = currentSessionCards[currentIndex];
             if (!card) return;
-            
             const textToCopy = isFlipped ? card.sentence : card.word;
             
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                showToast();
-            }).catch(() => {
+            navigator.clipboard.writeText(textToCopy).then(() => { showToast(); }).catch(() => {
                 const el = document.createElement('textarea');
-                el.value = textToCopy;
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand('copy');
-                document.body.removeChild(el);
-                showToast();
+                el.value = textToCopy; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); showToast();
             });
         }
 
         function showToast() {
             const toast = document.getElementById('toast');
-            toast.classList.remove('opacity-0', '-translate-y-2');
-            toast.classList.add('opacity-100', 'translate-y-0');
-            
-            setTimeout(() => {
-                toast.classList.remove('opacity-100', 'translate-y-0');
-                toast.classList.add('opacity-0', '-translate-y-2');
-            }, 2000);
+            toast.style.opacity = '1'; toast.style.transform = 'translateX(-50%) translateY(0)';
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(-10px)'; }, 2000);
         }
 
         function speakText(event) {
             event.stopPropagation();
-            const ut = new SpeechSynthesisUtterance(isFlipped ? currentSessionCards[currentIndex].sentence : currentSessionCards[currentIndex].word);
+            const card = currentSessionCards[currentIndex];
+            if(!card) return;
+            const ut = new SpeechSynthesisUtterance(isFlipped ? card.sentence : card.word);
             ut.lang = document.getElementById('learn-lang').value;
             window.speechSynthesis.speak(ut);
         }
@@ -378,12 +424,9 @@
         
         function nextCard() { 
             if (currentIndex < currentSessionCards.length - 1) { 
-                currentIndex++; 
-                isFlipped = false; 
-                showCard(); 
+                currentIndex++; isFlipped = false; showCard(); 
             } else { 
-                showCustomAlert("Congratulations! You've reviewed all cards in this session.", "🏁"); 
-                showSection('input'); 
+                showCustomAlert("Congratulations! You've reviewed all cards in this session.", "🏁"); showSection('input'); 
             } 
         }
         
@@ -394,12 +437,9 @@
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
             currentSessionCards.splice(currentIndex, 1);
             if (currentSessionCards.length === 0) {
-                showCustomAlert("Great Job! All cards are Mastered.", "🏆");
-                showSection('input');
+                showCustomAlert("Great Job! All cards are Mastered.", "🏆"); showSection('input');
             } else { 
-                if(currentIndex >= currentSessionCards.length) currentIndex--; 
-                isFlipped = false; 
-                showCard(); 
+                if(currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard(); 
             }
         }
 
@@ -410,28 +450,24 @@
             currentSessionCards.splice(currentIndex, 1);
             showToast();
             if (currentSessionCards.length === 0) {
-                showCustomAlert("All mastered cards reviewed!", "🏁");
-                showSection('input');
+                showCustomAlert("All mastered cards reviewed!", "🏁"); showSection('input');
             } else {
-                if (currentIndex >= currentSessionCards.length) currentIndex--;
-                isFlipped = false;
-                showCard();
+                if (currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard();
             }
         }
 
         function renderLearnedList() {
             const list = document.getElementById('learned-list');
             list.innerHTML = learnedWords.map(lw => `
-                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm border-l-4 border-green-500 mb-3 rtl-auto">
-                    <p class="font-black text-indigo-600 dark:text-indigo-400 uppercase text-lg">${lw.word}</p>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${lw.sentence}</p>
+                <div class="learned-card rtl-auto">
+                    <p style="font-weight:900; color:var(--primary); text-transform:uppercase; font-size:18px;">${lw.word}</p>
+                    <p style="font-size:14px; color:var(--text-muted); margin-top:4px;">${lw.sentence}</p>
                 </div>
             `).join('');
         }
 
         function startRepeat(mode) {
-            currentSessionCards = [];
-            currentSessionMode = mode;
+            currentSessionCards = []; currentSessionMode = mode;
             const allNotes = Object.values(notes).flat();
             
             if (mode === 'mastered') {
@@ -452,8 +488,7 @@
             
             if (currentSessionCards.length === 0) return showCustomAlert("No cards available for review!", "📚");
             currentSessionCards.sort(() => Math.random() - 0.5);
-            currentIndex = 0; isFlipped = false;
-            showCard(); showSection('repeat');
+            currentIndex = 0; isFlipped = false; showCard(); showSection('repeat');
         }
 
         function setupLanguages() {
@@ -471,6 +506,7 @@
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
             document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+            setTimeout(adjustFontSize, 10);
         }
 
         function applyTheme() {
@@ -485,7 +521,6 @@
             a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
             a.download = `SentVoc_Backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
-            // সাধারণ সেটিং ব্যাকআপ নিলেও যাতে ৭ দিনের নোটিফিকেশন রিসেট হয়ে যায়:
             localStorage.setItem('sentvoc_last_backup', Date.now());
         }
 
@@ -503,28 +538,18 @@
         function deleteCurrentCard() {
             showCustomConfirm((confirmed) => {
                 if (!confirmed) return;
-                
                 const currentCard = currentSessionCards[currentIndex];
                 if (!currentCard) return;
-
                 const id = currentCard.id;
 
-                for (let d in notes) {
-                    notes[d] = notes[d].filter(n => n.id !== id);
-                }
+                for (let d in notes) { notes[d] = notes[d].filter(n => n.id !== id); }
                 localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
-
                 learnedWords = learnedWords.filter(l => l.id !== id);
                 localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
 
                 currentSessionCards.splice(currentIndex, 1);
-
-                if (currentSessionCards.length === 0) {
-                    showSection('input');
-                } else {
-                    if (currentIndex >= currentSessionCards.length) currentIndex--;
-                    isFlipped = false;
-                    showCard();
+                if (currentSessionCards.length === 0) { showSection('input'); } else {
+                    if (currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard();
                 }
             });
         }
