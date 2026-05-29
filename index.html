@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v6.0</title>
+    <title>SentVoc v6.1</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -66,7 +66,6 @@
         
         .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); padding: 16px 0; border-radius: 16px; font-size: 12px; font-weight: bold; color: var(--text-main); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); text-align: center; }
         
-        /* 3D ফ্লিপিং এরিয়া এবং বাটন স্ট্যাটিক ধারক পজিশন */
         .flashcard-perspective { position: relative; perspective: 1000px; width: 100%; height: 384px; margin: 0 auto; }
         #flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 10; }
         
@@ -76,14 +75,11 @@
         
         .card-back { transform: rotateY(180deg); }
         
-        /* কন্টেন্ট বাউন্ডারি বক্স - বাটন ও টেক্সট ওভারল্যাপ প্রটেকশন */
         .card-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 80px 32px 50px 32px; }
         
-        /* শব্দ ও দীর্ঘ বাক্য লকিং সিএসএস */
         .card-word-style { font-weight: 900; letter-spacing: -1px; text-transform: uppercase; color: var(--text-main); text-align: center; max-width: 100%; display: block; word-break: keep-all; overflow-wrap: normal; white-space: nowrap; }
         .card-sentence-style { font-weight: bold; color: var(--text-muted); text-align: center; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5; display: block; max-height: 100%; overflow-y: auto; }
         
-        /* স্টেটিক গ্লোবাল অ্যাকশন বাটন - কার্ড ফ্লিপ হলেও জায়গা বদলাবে না */
         .card-action-btn { position: absolute; top: 24px; background: none; border: none; font-size: 24px; color: #cbd5e1; cursor: pointer; padding: 8px; z-index: 100; transition: color 0.2s; }
         .card-action-btn:hover { color: var(--primary); }
         #speak-btn { right: 32px; } 
@@ -95,7 +91,6 @@
         mark { background: #fef08a; padding: 0 4px; border-radius: 4px; font-weight: 900; font-style: italic; cursor: pointer; color: #000; display: inline-block; }
         .dark mark { background: rgba(234, 179, 8, 0.4); color: #fff; }
         
-        /* মোডাল ও অ্যালার্টস */
         .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(4px); z-index: 200; }
         .modal-box { background: var(--bg-card); padding: 24px; border-radius: 32px; width: 100%; max-width: 320px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border); text-align: center; }
         .modal-box p { margin-bottom: 24px; font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--text-main); }
@@ -119,7 +114,7 @@
         </div>
 
         <header class="flex justify-between items-center">
-            <h1 onclick="showSection('input')">SentVoc <span class="badge">v6.0</span></h1>
+            <h1 onclick="showSection('input')">SentVoc <span class="badge">v6.1</span></h1>
             <div class="flex items-center" style="gap:16px;">
                 <button onclick="toggleTheme()" class="btn-icon"><span id="theme-icon">🌙</span></button>
                 <button onclick="showSection('learned')" class="btn-text">Learned</button>
@@ -263,28 +258,44 @@
             applyTheme();
             setupLanguages();
             showSection('input');
-            checkBackupStatus();
+            checkBackupStatus(); // অ্যাপ লোড হওয়ার সময় ব্যাকআপ চেক করবে
         };
 
+        // বুলেট্রুফ টাইপ-সেফ ব্যাকআপ ইঞ্জিন (৭ দিনের বাগ ফিক্সড)
         function checkBackupStatus() {
-            const lastBackup = localStorage.getItem('sentvoc_last_backup');
+            const lastBackupStr = localStorage.getItem('sentvoc_last_backup');
             const totalCards = Object.values(notes).flat().length + learnedWords.length;
+            
             if (totalCards === 0) return;
-            if (!lastBackup) {
-                localStorage.setItem('sentvoc_last_backup', Date.now());
+
+            if (!lastBackupStr) {
+                document.getElementById('backup-reminder-banner').style.display = 'flex';
                 return;
             }
-            const daysSinceLastBackup = (Date.now() - parseInt(lastBackup)) / (1000 * 60 * 60 * 24);
+
+            const lastBackupTimestamp = Number(lastBackupStr);
+            const currentTimestamp = Date.now();
+
+            if (isNaN(lastBackupTimestamp)) {
+                localStorage.setItem('sentvoc_last_backup', currentTimestamp.toString());
+                return;
+            }
+
+            const daysSinceLastBackup = (currentTimestamp - lastBackupTimestamp) / (1000 * 60 * 60 * 24);
+
             if (daysSinceLastBackup >= 7) {
                 document.getElementById('backup-reminder-banner').style.display = 'flex';
+            } else {
+                document.getElementById('backup-reminder-banner').style.display = 'none';
             }
         }
 
         function triggerOneTapBackup() {
             exportData();
-            localStorage.setItem('sentvoc_last_backup', Date.now());
+            const currentTime = Date.now().toString();
+            localStorage.setItem('sentvoc_last_backup', currentTime);
             document.getElementById('backup-reminder-banner').style.display = 'none';
-            showCustomAlert("Backup Downloaded & Safe! Reminder reset for next 7 days.", "💾");
+            showCustomAlert("Backup Downloaded & Safe! Reminder reset for the next 7 days.", "💾");
         }
 
         function showCustomAlert(msg, icon = "✨") {
@@ -365,7 +376,6 @@
 
         function closeModal() { document.getElementById('dict-modal').style.display = 'none'; }
 
-        // ফন্ট এডজাস্টমেন্ট এবং বাউন্ডারি লকিং ইঞ্জিন
         function adjustFontSize() {
             const wordEl = document.getElementById('card-word-element');
             if (wordEl) {
@@ -381,7 +391,6 @@
             if (sentenceEl) {
                 let bSize = 24; 
                 sentenceEl.style.fontSize = bSize + 'px';
-                // বাউন্ডারি প্রোটেকশন: কন্টেনারের বাইরে কন্টেন্ট যাওয়ার আগেই ফন্ট সাইজ ছোট হবে
                 while ((sentenceEl.scrollHeight > sentenceEl.clientHeight) && bSize > 11) {
                     bSize -= 0.5;
                     sentenceEl.style.fontSize = bSize + 'px';
@@ -457,6 +466,7 @@
             });
             localStorage.setItem('sentvoc_notes', JSON.stringify(notes));
             input.innerHTML = ""; 
+            checkBackupStatus(); // কার্ড সেভ হওয়ার পর স্ট্যাটাস আপডেট করবে
             showCustomAlert("Card Saved Successfully!", "🎉");
         }
 
@@ -491,6 +501,7 @@
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
             currentSessionCards.splice(currentIndex, 1);
             document.getElementById('flashcard').classList.remove('flipped-state');
+            checkBackupStatus(); // ডাটা পরিবর্তন হলে স্ট্যাটাস চেক করবে
             if (currentSessionCards.length === 0) {
                 showCustomAlert("Great Job! All cards are Mastered.", "🏆"); showSection('input');
             } else { 
@@ -505,6 +516,7 @@
             currentSessionCards.splice(currentIndex, 1);
             document.getElementById('flashcard').classList.remove('flipped-state');
             showToast();
+            checkBackupStatus();
             if (currentSessionCards.length === 0) {
                 showCustomAlert("All mastered cards reviewed!", "🏁"); showSection('input');
             } else {
@@ -579,7 +591,8 @@
             a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
             a.download = `SentVoc_Backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
-            localStorage.setItem('sentvoc_last_backup', Date.now());
+            const currentTime = Date.now().toString();
+            localStorage.setItem('sentvoc_last_backup', currentTime);
         }
 
         function importData(e) {
@@ -588,6 +601,8 @@
                 const data = JSON.parse(ev.target.result);
                 localStorage.setItem('sentvoc_notes', JSON.stringify(data.notes));
                 localStorage.setItem('sentvoc_learned', JSON.stringify(data.learnedWords));
+                const currentTime = Date.now().toString();
+                localStorage.setItem('sentvoc_last_backup', currentTime);
                 location.reload();
             };
             reader.readAsText(e.target.files[0]);
@@ -607,6 +622,7 @@
 
                 currentSessionCards.splice(currentIndex, 1);
                 document.getElementById('flashcard').classList.remove('flipped-state');
+                checkBackupStatus();
                 if (currentSessionCards.length === 0) { showSection('input'); } else {
                     if (currentIndex >= currentSessionCards.length) currentIndex--; isFlipped = false; showCard();
                 }
