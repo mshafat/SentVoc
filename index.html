@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v6.2</title>
+    <title>SentVoc v6.3</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -60,7 +60,6 @@
         #note-input:empty:before { content: attr(placeholder); color: #94a3b8; }
         .vocab-word { cursor: pointer; color: var(--primary); font-weight: 900; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
         
-        /* কুইক ইনপুট পেস্ট বাটন */
         .input-paste-btn { position: absolute; bottom: 16px; right: 24px; background: var(--bg-main); border: 1px solid var(--border); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 4px; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
         .input-paste-btn:active { transform: scale(0.95); }
 
@@ -80,9 +79,11 @@
         
         .card-back { transform: rotateY(180deg); }
         
-        .card-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 80px 32px 50px 32px; }
+        /* মার্জিন সমস্যা সমাধানের জন্য রেডিমেড সেন্টারিং কন্টেইনার */
+        .card-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 80px 24px 50px 24px; text-align: center; }
         
-        .card-word-style { font-weight: 900; letter-spacing: -1px; text-transform: uppercase; color: var(--text-main); text-align: center; max-width: 100%; display: block; word-break: keep-all; overflow-wrap: normal; white-space: nowrap; }
+        /* উর্দু/আরবি স্ক্রিন মার্জিন ওভারফ্লো ফিক্সড ডিজাইন */
+        .card-word-style { font-weight: 900; color: var(--text-main); text-align: center; width: 100%; max-width: 100%; display: inline-block; word-break: normal; overflow-wrap: break-word; white-space: normal; margin: 0 auto; }
         .card-sentence-style { font-weight: bold; color: var(--text-muted); text-align: center; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5; display: block; max-height: 100%; overflow-y: auto; }
         
         .card-action-btn { position: absolute; top: 24px; background: none; border: none; font-size: 24px; color: #cbd5e1; cursor: pointer; padding: 8px; z-index: 100; transition: color 0.2s; }
@@ -110,7 +111,6 @@
         .learned-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .border-btn { border-bottom: 1px solid var(--border); padding-bottom: 2px; background: none; border-top:none; border-left:none; border-right:none; font-weight: bold; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; }
 
-        /* টপ-বটম ফ্লোটিং জাম্প বাটন */
         .scroll-jump-btn { position: fixed; bottom: 32px; right: calc(50% - 200px); background: var(--primary); color: white; width: 44px; height: 44px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); z-index: 90; }
         @media(max-width: 450px) { .scroll-jump-btn { right: 20px; } }
     </style>
@@ -124,7 +124,7 @@
         </div>
 
         <header class="flex justify-between items-center">
-            <h1 onclick="showSection('input')">SentVoc <span class="badge">v6.2</span></h1>
+            <h1 onclick="showSection('input')">SentVoc <span class="badge">v6.3</span></h1>
             <div class="flex items-center" style="gap:16px;">
                 <button onclick="toggleTheme()" class="btn-icon"><span id="theme-icon">🌙</span></button>
                 <button onclick="showSection('learned')" class="btn-text">Learned</button>
@@ -180,8 +180,8 @@
                     <button id="next-btn" onclick="nextCard()" class="btn-primary" style="margin-top:0; width:auto; padding:16px 40px;">Next →</button>
                 </div>
                 <div class="flex justify-center" style="margin-top:8px; gap:20px;">
-                    <button id="mastered-btn" onclick="markAsLearned()" class="border-btn" style="color:#10b981;">✓ Mastered</button>
-                    <button id="relearn-btn" onclick="processRelearn()" class="hidden border-btn" style="color:#ef4444;">↺ Relearn</button>
+                    <button id="mastered-btn" onclick="markAsLearned(event)" class="border-btn" style="color:#10b981;">✓ Mastered</button>
+                    <button id="relearn-btn" onclick="processRelearn(event)" class="hidden border-btn" style="color:#ef4444;">↺ Relearn</button>
                 </div>
             </div>
         </div>
@@ -273,7 +273,6 @@
             showSection('input');
             checkBackupStatus();
             
-            // স্ক্রল ডিটেকশন জাম্প বাটনের জন্য
             window.onscroll = () => {
                 const sBtn = document.getElementById('scroll-btn');
                 if(document.getElementById('learned-view').classList.contains('hidden')) {
@@ -283,7 +282,6 @@
                 if (window.scrollY > 150 || (window.innerHeight + window.scrollY) < document.body.offsetHeight - 150) {
                     sBtn.style.display = 'flex';
                 }
-                // আইকন ডিরেকশন চেঞ্জ
                 if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 40) {
                     sBtn.innerText = "↑";
                 } else {
@@ -292,7 +290,6 @@
             };
         };
 
-        // ১। ক্লিপবোর্ড থেকে সরাসরি টেক্সট বক্সে ওয়ান-ট্যাপ পেস্ট মেথড
         async function pasteFromClipboard() {
             try {
                 const text = await navigator.clipboard.readText();
@@ -303,7 +300,6 @@
                 const inputField = document.getElementById('note-input');
                 inputField.innerText = text;
                 inputField.focus();
-                // কার্সার একদম শেষে সেট করার জন্য লজিক
                 const range = document.createRange();
                 const sel = window.getSelection();
                 range.selectNodeContents(inputField);
@@ -315,7 +311,6 @@
             }
         }
 
-        // ২। স্ক্রল জাম্প কন্ট্রোলার (টপ এবং বটম)
         function handleScrollJump() {
             const sBtn = document.getElementById('scroll-btn');
             if (sBtn.innerText === "↓") {
@@ -328,24 +323,18 @@
         function checkBackupStatus() {
             const lastBackupStr = localStorage.getItem('sentvoc_last_backup');
             const totalCards = Object.values(notes).flat().length + learnedWords.length;
-            
             if (totalCards === 0) return;
-
             if (!lastBackupStr) {
                 document.getElementById('backup-reminder-banner').style.display = 'flex';
                 return;
             }
-
             const lastBackupTimestamp = Number(lastBackupStr);
             const currentTimestamp = Date.now();
-
             if (isNaN(lastBackupTimestamp)) {
                 localStorage.setItem('sentvoc_last_backup', currentTimestamp.toString());
                 return;
             }
-
             const daysSinceLastBackup = (currentTimestamp - lastBackupTimestamp) / (1000 * 60 * 60 * 24);
-
             if (daysSinceLastBackup >= 7) {
                 document.getElementById('backup-reminder-banner').style.display = 'flex';
             } else {
@@ -358,7 +347,7 @@
             const currentTime = Date.now().toString();
             localStorage.setItem('sentvoc_last_backup', currentTime);
             document.getElementById('backup-reminder-banner').style.display = 'none';
-            showCustomAlert("Backup Downloaded & Safe! Reminder reset for the next 7 days.", "💾");
+            showCustomAlert("Backup Downloaded & Safe!", "💾");
         }
 
         function showCustomAlert(msg, icon = "✨") {
@@ -442,9 +431,10 @@
         function adjustFontSize() {
             const wordEl = document.getElementById('card-word-element');
             if (wordEl) {
-                let fSize = 44; 
+                let fSize = 40; 
                 wordEl.style.fontSize = fSize + 'px';
-                while ((wordEl.scrollWidth > wordEl.clientWidth || wordEl.offsetHeight > 120) && fSize > 14) {
+                // ফন্ট ফিটিং এবং ওভারফ্লো লজিক আরও উন্নত করা হয়েছে
+                while ((wordEl.scrollWidth > wordEl.clientWidth || wordEl.offsetHeight > 140) && fSize > 16) {
                     fSize -= 1;
                     wordEl.style.fontSize = fSize + 'px';
                 }
@@ -469,7 +459,6 @@
             const sentenceEl = document.getElementById('card-sentence-element');
             
             document.getElementById('card-progress').innerText = `${currentIndex + 1} / ${currentSessionCards.length}`;
-            
             wordEl.innerText = card.word;
             
             const targetWord = card.word.trim();
@@ -539,7 +528,6 @@
             document.getElementById('learned-view').classList.add('hidden');
             document.getElementById(s + '-view').classList.remove('hidden');
             
-            // মাস্টার্ড ভিউ ওপেন হলে বাটন শো/হাইড ও কাউন্টার ট্রিকার
             const sBtn = document.getElementById('scroll-btn');
             if(s === 'learned') {
                 renderLearnedList();
@@ -555,7 +543,7 @@
                 document.getElementById('flashcard').classList.remove('flipped-state');
                 showCard(); 
             } else { 
-                showCustomAlert("Congratulations! You've reviewed all cards in this session.", "🏁"); showSection('input'); 
+                showCustomAlert("Congratulations! You've reviewed all cards.", "🏁"); showSection('input'); 
             } 
         }
         
@@ -567,7 +555,8 @@
             } 
         }
 
-        function markAsLearned() {
+        function markAsLearned(event) {
+            if(event) event.stopPropagation(); // বাটন বাবলিং বন্ধ
             learnedWords.push(currentSessionCards[currentIndex]);
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
             currentSessionCards.splice(currentIndex, 1);
@@ -580,13 +569,14 @@
             }
         }
 
-        function processRelearn() {
+        // ২। ভুল করে টোস্ট মেসেজ আসার বাগটি এখানে ফিক্স করা হয়েছে
+        function processRelearn(event) {
+            if(event) event.stopPropagation(); // ফ্লিপ বা কপি ইভেন্ট ট্রিগার হওয়া রোধ করবে
             const cardToMove = currentSessionCards[currentIndex];
             learnedWords = learnedWords.filter(l => l.id !== cardToMove.id);
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
             currentSessionCards.splice(currentIndex, 1);
             document.getElementById('flashcard').classList.remove('flipped-state');
-            showToast();
             checkBackupStatus();
             if (currentSessionCards.length === 0) {
                 showCustomAlert("All mastered cards reviewed!", "🏁"); showSection('input');
@@ -595,17 +585,13 @@
             }
         }
 
-        // ২। শব্দ কাউন্টার সহ মাস্টার্ড লিস্ট রেন্ডার ইঞ্জিন
         function renderLearnedList() {
             document.getElementById('mastered-title').innerText = `Mastered Words (${learnedWords.length})`;
             const list = document.getElementById('learned-list');
-            
             if(learnedWords.length === 0) {
                 list.innerHTML = `<p style="text-align:center; color:var(--text-muted); font-size:14px; margin-top:32px;">No mastered words yet.</p>`;
                 return;
             }
-
-            // ৩। ট্যাপ করলে স্পেসিফিক ডেক এ রেন্ডমাইজড রিভিউ সেশন অন হবে
             list.innerHTML = learnedWords.map((lw, index) => `
                 <div class="learned-card rtl-auto" onclick="startSingleCardReview(${index})">
                     <p style="font-weight:900; color:var(--primary); text-transform:uppercase; font-size:18px;">${lw.word}</p>
@@ -614,26 +600,19 @@
             `).join('');
         }
 
-        // ৩। মাস্টার্ড লিস্টের শব্দে ক্লিক করলে ডেক ও র্যান্ডমাইজেশন ট্রিগার করার লজিক
         function startSingleCardReview(targetIndex) {
             currentSessionMode = 'mastered';
             const clickedCard = learnedWords[targetIndex];
-            
-            // যে কার্ডে ক্লিক করা হয়েছে সেটি প্রথমে থাকবে, বাকিগুলো র্যান্ডমলি পেছনে সাজানো হবে
             let restCards = learnedWords.filter(l => l.id !== clickedCard.id);
             restCards.sort(() => Math.random() - 0.5);
-            
             currentSessionCards = [clickedCard, ...restCards];
             
             document.getElementById('mastered-btn').classList.add('hidden');
             document.getElementById('relearn-btn').classList.remove('hidden');
             
-            currentIndex = 0; 
-            isFlipped = false; 
+            currentIndex = 0; isFlipped = false; 
             document.getElementById('flashcard').classList.remove('flipped-state');
-            
-            showCard(); 
-            showSection('repeat');
+            showCard(); showSection('repeat');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -690,11 +669,12 @@
             document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
         }
 
+        // এক্সপোর্ট সিস্টেমে ফাইলনেম কনভেনশন আরও রিডেবল করা হয়েছে
         function exportData() {
             const data = JSON.stringify({notes, learnedWords});
             const a = document.createElement("a");
             a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
-            a.download = `SentVoc_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `SentVoc_v6.3_Backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             const currentTime = Date.now().toString();
             localStorage.setItem('sentvoc_last_backup', currentTime);
