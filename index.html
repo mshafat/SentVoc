@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SentVoc v6.3</title>
+    <title>SentVoc v6.3.1</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -79,10 +79,8 @@
         
         .card-back { transform: rotateY(180deg); }
         
-        /* মার্জিন সমস্যা সমাধানের জন্য রেডিমেড সেন্টারিং কন্টেইনার */
         .card-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 80px 24px 50px 24px; text-align: center; }
         
-        /* উর্দু/আরবি স্ক্রিন মার্জিন ওভারফ্লো ফিক্সড ডিজাইন */
         .card-word-style { font-weight: 900; color: var(--text-main); text-align: center; width: 100%; max-width: 100%; display: inline-block; word-break: normal; overflow-wrap: break-word; white-space: normal; margin: 0 auto; }
         .card-sentence-style { font-weight: bold; color: var(--text-muted); text-align: center; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5; display: block; max-height: 100%; overflow-y: auto; }
         
@@ -124,7 +122,7 @@
         </div>
 
         <header class="flex justify-between items-center">
-            <h1 onclick="showSection('input')">SentVoc <span class="badge">v6.3</span></h1>
+            <h1 onclick="showSection('input')">SentVoc <span class="badge">v6.3.1</span></h1>
             <div class="flex items-center" style="gap:16px;">
                 <button onclick="toggleTheme()" class="btn-icon"><span id="theme-icon">🌙</span></button>
                 <button onclick="showSection('learned')" class="btn-text">Learned</button>
@@ -132,6 +130,7 @@
             </div>
         </header>
 
+        <!-- ইনপুট ভিউ -->
         <div id="input-view">
             <div class="relative">
                 <button id="bold-tool" onclick="makeBold()">✨ Highlight Word</button>
@@ -147,6 +146,7 @@
             </div>
         </div>
 
+        <!-- ফ্ল্যাশকার্ড ভিউ -->
         <div id="repeat-view" class="hidden">
             <div class="flex justify-between items-center" style="margin-bottom:16px; padding:0 4px;">
                 <div id="card-progress" style="color:var(--text-muted); font-weight:bold; font-size:12px;">0 / 0</div>
@@ -158,6 +158,7 @@
                 <button id="copy-btn" onclick="copyCardContent(event)" class="card-action-btn" title="Copy Content">📋</button>
 
                 <div id="flashcard" onclick="flipCard()">
+                    <!-- সামনের পিঠ -->
                     <div class="card-face card-front">
                         <div class="card-content-wrapper">
                             <div id="card-word-element" class="card-word-style rtl-auto"></div>
@@ -165,6 +166,7 @@
                         <div class="flip-hint">Tap to flip</div>
                     </div>
                     
+                    <!-- পেছনের পিঠ -->
                     <div class="card-face card-back">
                         <div class="card-content-wrapper">
                             <div id="card-sentence-element" class="card-sentence-style rtl-auto"></div>
@@ -186,6 +188,7 @@
             </div>
         </div>
 
+        <!-- মাস্টার্ড লিস্ট ভিউ -->
         <div id="learned-view" class="hidden">
             <div class="flex justify-between items-center" style="margin-bottom:24px;">
                 <h2 id="mastered-title" style="font-size:20px; font-weight:bold;">Mastered Words</h2>
@@ -397,6 +400,7 @@
             modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
         }
 
+        /* গুগল ও মাই-মেমোরি অনুবাদ মেকানিজম (স্মার্ট ফলব্যাক সহ) */
         async function lookup(word) {
             if (window.event) window.event.stopPropagation();
             const cleanWord = word.replace(/[.,!?।()]/g, "").trim();
@@ -411,18 +415,40 @@
             const tl = document.getElementById('target-lang').value;
             const card = currentSessionCards[currentIndex];
 
-            try {
-                const wRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(cleanWord)}`);
-                const wData = await wRes.json();
-                document.getElementById('dict-meaning').innerText = wData[0][0][0];
-
-                if(card && card.sentence) {
-                    const sRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURI(card.sentence)}`);
-                    const sData = await sRes.json();
-                    document.getElementById('sentence-meaning').innerText = sData[0][0][0];
+            async function translateText(text) {
+                // ১. গুগল ট্রান্সলেট দিয়ে ফার্স্ট ট্রাই
+                try {
+                    const gRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`);
+                    if (!gRes.ok) throw new Error("Google Limit");
+                    const gData = await gRes.json();
+                    if (gData && gData[0] && gData[0][0] && gData[0][0][0]) {
+                        return gData[0][0][0];
+                    }
+                } catch (e) {
+                    console.warn("Google Translate Error, Fallback to MyMemory:", e);
                 }
-            } catch (e) {
-                document.getElementById('dict-meaning').innerText = "Offline Mode (No Translation)";
+
+                // ২. গুগল ফেইল করলে মাই-মেমোরি ফ্রি এপিআই
+                try {
+                    const mmRes = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sl}|${tl}`);
+                    if (!mmRes.ok) throw new Error("MyMemory Limit");
+                    const mmData = await mmRes.json();
+                    if (mmData && mmData.responseData && mmData.responseData.translatedText) {
+                        return mmData.responseData.translatedText;
+                    }
+                } catch (e) {
+                    console.error("MyMemory Translate Error:", e);
+                }
+
+                return null;
+            }
+
+            const translatedWord = await translateText(cleanWord);
+            document.getElementById('dict-meaning').innerText = translatedWord || "Translation Unavailable";
+
+            if (card && card.sentence) {
+                const translatedSentence = await translateText(card.sentence);
+                document.getElementById('sentence-meaning').innerText = translatedSentence || "Translation Unavailable";
             }
         }
 
@@ -433,7 +459,6 @@
             if (wordEl) {
                 let fSize = 40; 
                 wordEl.style.fontSize = fSize + 'px';
-                // ফন্ট ফিটিং এবং ওভারফ্লো লজিক আরও উন্নত করা হয়েছে
                 while ((wordEl.scrollWidth > wordEl.clientWidth || wordEl.offsetHeight > 140) && fSize > 16) {
                     fSize -= 1;
                     wordEl.style.fontSize = fSize + 'px';
@@ -556,7 +581,7 @@
         }
 
         function markAsLearned(event) {
-            if(event) event.stopPropagation(); // বাটন বাবলিং বন্ধ
+            if(event) event.stopPropagation();
             learnedWords.push(currentSessionCards[currentIndex]);
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
             currentSessionCards.splice(currentIndex, 1);
@@ -569,9 +594,8 @@
             }
         }
 
-        // ২। ভুল করে টোস্ট মেসেজ আসার বাগটি এখানে ফিক্স করা হয়েছে
         function processRelearn(event) {
-            if(event) event.stopPropagation(); // ফ্লিপ বা কপি ইভেন্ট ট্রিগার হওয়া রোধ করবে
+            if(event) event.stopPropagation();
             const cardToMove = currentSessionCards[currentIndex];
             learnedWords = learnedWords.filter(l => l.id !== cardToMove.id);
             localStorage.setItem('sentvoc_learned', JSON.stringify(learnedWords));
@@ -669,12 +693,11 @@
             document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
         }
 
-        // এক্সপোর্ট সিস্টেমে ফাইলনেম কনভেনশন আরও রিডেবল করা হয়েছে
         function exportData() {
             const data = JSON.stringify({notes, learnedWords});
             const a = document.createElement("a");
             a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
-            a.download = `SentVoc_v6.3_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `SentVoc_v6.3.1_Backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             const currentTime = Date.now().toString();
             localStorage.setItem('sentvoc_last_backup', currentTime);
