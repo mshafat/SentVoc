@@ -28,17 +28,18 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// নেটওয়ার্ক ফার্স্ট এবং ক্যাশ ফলব্যাক স্ট্র্যাটেজি
+// Network first + cache fallback strategy
 self.addEventListener('fetch', (e) => {
-  // অনলাইন ডিকশনারি রিকোয়েস্ট সরাসরি স্কিপ করা হলো (এটি অফলাইনে কাজ করবে না)
-  if (e.request.url.includes('translate.googleapis.com')) {
-    return; 
+  // Let translation APIs always go to network (never cached, never blocked)
+  if (e.request.url.includes('translate.googleapis.com') || 
+      e.request.url.includes('api.mymemory.translated.net')) {
+    e.respondWith(fetch(e.request));
+    return;
   }
   
   e.respondWith(
     fetch(e.request)
       .then((response) => {
-        // নেটওয়ার্ক ঠিক থাকলে ফাইলটি ক্যাশে আপডেট করে নেবে
         if (response && response.status === 200) {
           const cacheCopy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
@@ -46,7 +47,6 @@ self.addEventListener('fetch', (e) => {
         return response;
       })
       .catch(() => {
-        // ইন্টারনেট অফ থাকলে সরাসরি লোকাল ক্যাশ মেমোরি থেকে ইনস্ট্যান্ট রান করবে
         return caches.match(e.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           if (e.request.mode === 'navigate') {
