@@ -1,5 +1,5 @@
-// SentVoc Advanced Offline Engine v6.0
-const CACHE_NAME = 'sentvoc-cache-v6.0';
+// SentVoc Advanced Offline Engine v6.3
+const CACHE_NAME = 'sentvoc-cache-v6.3';
 const ASSETS = [
   './',
   './index.html',
